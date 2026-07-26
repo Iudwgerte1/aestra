@@ -15,3 +15,15 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+#ifndef MASKS_HPP
+#define MASKS_HPP
+
+#include "types.hpp"
+
+void initMasks();
+
+int distanceBetween(Square sq1, Square sq2);
+Bitboard bitsBetween(Square sq1, Square sq2);
+
+#endif  // MASKS_HPP

@@ -16,8 +16,6 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <iostream>
-
 #include "attacks.hpp"
 #include "bitboards.hpp"
 #include "board.hpp"
@@ -26,9 +24,21 @@
 #include "types.hpp"
 #include "zobrist.hpp"
 
+#include <chrono>
+
 int main() {
     initAttacks();
     initZobrist();
+
+    Board board;
+    StateInfo st;
+    board.setPos("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &st);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    uint64_t nodes = board.perft(6, false);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    std::cout << "Nodes per ms: " << nodes / std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
 
     return 0;
 }

@@ -21,6 +21,7 @@
 #include "attacks.hpp"
 #include "bitboards.hpp"
 #include "board.hpp"
+#include "masks.hpp"
 #include "types.hpp"
 
 typedef Bitboard (*JumperFunc)(Square sq);
@@ -107,18 +108,16 @@ void genQuietMoves(const Board& board, MoveList& moves) {
         if (board.canCastle(board.turn() == WHITE ? WHITE_OO : BLACK_OO)) {
             Square kTo = makeSquare(FILE_G, rankOf(kingSq));
             Square fSq = makeSquare(FILE_F, rankOf(kingSq));
-            if (!(occupied & (kTo | fSq))
-                && !board.attackersTo(fSq, ~board.turn())
-                && !board.attackersTo(kTo, ~board.turn()))
+            if (!(occupied & (kTo | fSq)) && !board.attackersTo(fSq, ~board.turn()) &&
+                !board.attackersTo(kTo, ~board.turn()))
                 moves.add(makeMove(kingSq, kTo, CASTLING));
         }
         if (board.canCastle(board.turn() == WHITE ? WHITE_OOO : BLACK_OOO)) {
             Square kTo = makeSquare(FILE_C, rankOf(kingSq));
             Square bSq = makeSquare(FILE_B, rankOf(kingSq));
             Square dSq = makeSquare(FILE_D, rankOf(kingSq));
-            if (!(occupied & (kTo | dSq | bSq))
-                && !board.attackersTo(dSq, ~board.turn())
-                && !board.attackersTo(kTo, ~board.turn()))
+            if (!(occupied & (kTo | dSq | bSq)) && !board.attackersTo(dSq, ~board.turn()) &&
+                !board.attackersTo(kTo, ~board.turn()))
                 moves.add(makeMove(kingSq, kTo, CASTLING));
         }
     }

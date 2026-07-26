@@ -359,7 +359,7 @@ uint64_t Board::perft(int ply, bool quiet) {
         uint64_t n = 0;
         StateInfo tempSi;
         doMove(m, tempSi);
-        n = perft(ply - 1, quiet);
+        n = perft(ply - 1);
         if (!quiet) std::cout << move2str(m) << ": " << n << std::endl;
         nodes += n;
         undoMove(m);

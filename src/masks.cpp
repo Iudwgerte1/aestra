@@ -15,3 +15,31 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+#include "masks.hpp"
+
+#include "attacks.hpp"
+#include "bitboards.hpp"
+
+int DistanceBetween[SQUARE_NB][SQUARE_NB];
+Bitboard BitsBetween[SQUARE_NB][SQUARE_NB];
+
+void initMasks() {
+    for (Square sq1 = SQ_A1; sq1 <= SQ_H8; ++sq1)
+        for (Square sq2 = SQ_A1; sq2 <= SQ_H8; ++sq2)
+            DistanceBetween[sq1][sq2] =
+                std::max(std::abs(int(fileOf(sq1)) - int(fileOf(sq2))), std::abs(int(rankOf(sq1)) - int(rankOf(sq2))));
+
+    for (Square sq1 = SQ_A1; sq1 <= SQ_H8; ++sq1)
+        for (Square sq2 = SQ_A1; sq2 <= SQ_H8; ++sq2)
+            if (bishopAttacks(sq1, 0ull) & sq2)
+                BitsBetween[sq1][sq2] = bishopAttacks(sq1, squareBB(sq2)) & bishopAttacks(sq2, squareBB(sq1));
+
+    for (Square sq1 = SQ_A1; sq1 <= SQ_H8; ++sq1)
+        for (Square sq2 = SQ_A1; sq2 <= SQ_H8; ++sq2)
+            if (rookAttacks(sq1, 0ull) & sq2)
+                BitsBetween[sq1][sq2] = rookAttacks(sq1, squareBB(sq2)) & rookAttacks(sq2, squareBB(sq1));
+}
+
+int distanceBetween(Square sq1, Square sq2) { return DistanceBetween[sq1][sq2]; }
+Bitboard bitsBetween(Square sq1, Square sq2) { return BitsBetween[sq1][sq2]; }
