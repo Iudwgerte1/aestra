@@ -36,6 +36,7 @@ struct StateInfo {
     Square epSquare;
 
     Key key;
+    Bitboard kingAttackers;
     StateInfo* prev;
     Piece capturedPiece;
 };
@@ -88,6 +89,8 @@ public:
 
     StateInfo* state() const;
 
+    Bitboard kingAttackers() const;
+
     void putPiece(Piece p, Square s);
     void removePiece(Square s);
 
@@ -104,6 +107,7 @@ private:
     StateInfo* st;
     int gamePly;
     Color stm;
+    Score psqt;
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& b);
@@ -171,5 +175,7 @@ inline Color Board::turn() const { return stm; }
 inline int Board::Ply() const { return gamePly; }
 
 inline StateInfo* Board::state() const { return st; }
+
+inline Bitboard Board::kingAttackers() const { return st->kingAttackers; }
 
 #endif  // BOARD_HPP

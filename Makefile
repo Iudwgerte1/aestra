@@ -28,8 +28,8 @@ RFLAGS = -O3 $(WFLAGS) -DNDEBUG -static
 CFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native
 TFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native -fopenmp -DTUNE
 
-POPCNTFLAGS = -DPOPCNT -mpopcnt
-PEXTFLAGS = -DPEXT -mbmi2 $(POPCNTFLAGS)
+POPCNTFLAGS = -DUSE_POPCNT -mpopcnt
+PEXTFLAGS = -DUSE_PEXT -mbmi2 $(POPCNTFLAGS)
 
 SSSE3FLAGS  = -DUSE_SSSE3 -msse -msse2 -msse3 -mssse3
 AVXFLAGS    = -DUSE_AVX -mavx -msse4.1 $(SSSE3FLAGS)

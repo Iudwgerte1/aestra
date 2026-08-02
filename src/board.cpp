@@ -124,6 +124,8 @@ void Board::setState() {
     if (stm == BLACK) st->key ^= ZobristTurnKey;
 
     st->key ^= ZobristCastlingKeys[st->castlingRights];
+
+    st->kingAttackers = checkers(stm);
 }
 
 std::string Board::fen() const {
@@ -247,6 +249,7 @@ void Board::doMove(Move m, StateInfo& newSi) {
     st->key = k;
     st->capturedPiece = captured;
     stm = ~stm;
+    st->kingAttackers = checkers(stm);
 }
 
 void Board::undoMove(Move m) {

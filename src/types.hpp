@@ -51,19 +51,12 @@ enum CastlingRights : uint8_t {
 
 enum Bound : uint8_t { BOUND_NONE, BOUND_UPPER, BOUND_LOWER, BOUND_EXACT };
 
-typedef int Value;
-
-constexpr Value VALUE_ZERO = 0;
-constexpr Value VALUE_DRAW = 0;
-constexpr Value VALUE_NONE = 32002;
-constexpr Value VALUE_INFINITE = 32001;
-
-constexpr Value VALUE_MATE = 32000;
+enum Value : int16_t { VALUE_ZERO = 0, VALUE_DRAW = 0, VALUE_NONE = 32002, VALUE_INFINITE = 32001, VALUE_MATE = 32000 };
 
 constexpr bool isValid(Value value) { return value != VALUE_NONE; }
 
-constexpr Value mateIn(int ply) { return VALUE_MATE - ply; }
-constexpr Value matedIn(int ply) { return -VALUE_MATE + ply; }
+constexpr Value mateIn(int ply) { return Value(int(VALUE_MATE) - ply); }
+constexpr Value matedIn(int ply) { return Value(-int(VALUE_MATE) + ply); }
 
 // clang-format off
 enum PieceType : uint8_t {
@@ -113,6 +106,26 @@ enum Direction : int8_t {
 enum File : uint8_t { FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, FILE_NB };
 
 enum Rank : uint8_t { RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_NB };
+
+enum Score : uint32_t { SCORE_ZERO };
+
+constexpr Score makeScore(Value mg, Value eg) {
+    return static_cast<Score>((static_cast<uint32_t>(static_cast<uint16_t>(mg)) << 16) |
+                              static_cast<uint32_t>(static_cast<uint16_t>(eg)));
+}
+
+constexpr Value mgValue(Score s) { return static_cast<Value>(static_cast<int16_t>((static_cast<uint32_t>(s) >> 16))); }
+constexpr Value egValue(Score s) { return static_cast<Value>(static_cast<int16_t>(static_cast<uint32_t>(s))); }
+
+constexpr Score operator+(Score s1, Score s2) {
+    return makeScore(Value(int(mgValue(s1)) + int(mgValue(s2))), Value(int(egValue(s1)) + int(egValue(s2))));
+}
+constexpr Score operator-(Score s1, Score s2) {
+    return makeScore(Value(int(mgValue(s1)) - int(mgValue(s2))), Value(int(egValue(s1)) - int(egValue(s2))));
+}
+constexpr Score operator-(Score s) { return makeScore(Value(-int(mgValue(s))), Value(-int(egValue(s)))); }
+constexpr Score& operator+=(Score& s, Score s2) { return s = s + s2; }
+constexpr Score& operator-=(Score& s, Score s2) { return s = s - s2; }
 
 #define ENABLE_INCR_OPERATORS(T)                                \
     constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
@@ -174,5 +187,7 @@ constexpr Square fromSq(Move m) { return Square((m >> 6) & 63); }
 constexpr Square toSq(Move m) { return Square(m & 63); }
 constexpr PieceType promoPiece(Move m) { return PieceType(((m >> 12) & 3) + KNIGHT); }
 constexpr MoveType moveType(Move m) { return MoveType(m & (3 << 14)); }
+
+const std::string STARTPOS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 #endif  // TYPES_HPP

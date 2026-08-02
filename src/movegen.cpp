@@ -88,9 +88,9 @@ void genQuietMoves(const Board& board, MoveList& moves) {
     Bitboard rooks = us & (board.pieces(ROOK) | board.pieces(QUEEN));
     Bitboard kings = us & board.pieces(KING);
 
-    if (several(board.checkers(board.turn()))) return buildJumperMoves(&kingAttacks, moves, kings, ~occupied);
+    if (several(board.kingAttackers())) return buildJumperMoves(&kingAttacks, moves, kings, ~occupied);
 
-    Bitboard destinations = ~occupied;
+    Bitboard destinations = !board.kingAttackers() ? ~occupied : bitsBetween(lsb(kings), lsb(board.kingAttackers()));
 
     Bitboard pawnForwardOne = pawnAdvance(pawns, occupied, board.turn()) & ~PROMOTION_RANKS;
     Bitboard pawnForwardTwo = pawnAdvance(pawnForwardOne & Rank3Relative, occupied, board.turn());
@@ -101,9 +101,9 @@ void genQuietMoves(const Board& board, MoveList& moves) {
     buildJumperMoves(&knightAttacks, moves, knights, destinations);
     buildSliderMoves(&bishopAttacks, moves, bishops, occupied, destinations);
     buildSliderMoves(&rookAttacks, moves, rooks, occupied, destinations);
-    buildJumperMoves(&kingAttacks, moves, kings, destinations);
+    buildJumperMoves(&kingAttacks, moves, kings, ~occupied);
 
-    if (!board.checkers(board.turn())) {
+    if (!board.kingAttackers()) {
         Square kingSq = board.turn() == WHITE ? SQ_E1 : SQ_E8;
         if (board.canCastle(board.turn() == WHITE ? WHITE_OO : BLACK_OO)) {
             Square kTo = makeSquare(FILE_G, rankOf(kingSq));
@@ -138,9 +138,9 @@ void genNoisyMoves(const Board& board, MoveList& moves) {
     Bitboard rooks = us & (board.pieces(ROOK) | board.pieces(QUEEN));
     Bitboard kings = us & board.pieces(KING);
 
-    if (several(board.checkers(board.turn()))) return buildJumperMoves(&kingAttacks, moves, kings, them);
+    if (several(board.kingAttackers())) return buildJumperMoves(&kingAttacks, moves, kings, them);
 
-    Bitboard destinations = them;
+    Bitboard destinations = board.kingAttackers() ? board.kingAttackers() : them;
 
     Bitboard pawnEnpassant = pawnEnPassantAttacks(pawns, board.epSquare(), board.turn());
     Bitboard pawnLeft = pawnLeftAttacks(pawns, them, board.turn());
@@ -164,20 +164,20 @@ void genNoisyMoves(const Board& board, MoveList& moves) {
     buildJumperMoves(&kingAttacks, moves, kings, them);
 }
 
-void genLegalMoves(const Board& board, MoveList& moves) {
+void genLegalMoves(const Board& board, MoveList& moves, bool quiet) {
     MoveList pseudoLegals;
 
     genQuietMoves(board, pseudoLegals);
-    genNoisyMoves(board, pseudoLegals);
+    if (!quiet) genNoisyMoves(board, pseudoLegals);
 
-    Board tempBoard;
-    memcpy(&tempBoard, &board, sizeof(Board));
+    Board tmpBoard;
+    memcpy(&tmpBoard, &board, sizeof(Board));
 
     for (int i = 0; i < pseudoLegals.size(); ++i) {
         Move m = pseudoLegals[i];
         StateInfo tempSi;
-        tempBoard.doMove(m, tempSi);
-        if (!tempBoard.checkers(~tempBoard.turn())) moves.add(m);
-        tempBoard.undoMove(m);
+        tmpBoard.doMove(m, tempSi);
+        if (!tmpBoard.checkers(~tmpBoard.turn())) moves.add(m);
+        tmpBoard.undoMove(m);
     }
 }
