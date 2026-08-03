@@ -26,7 +26,6 @@ EXT = .exe
 WFLAGS = -std=c++17 -Wall -Wextra -Wshadow
 RFLAGS = -O3 $(WFLAGS) -DNDEBUG -static
 CFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native
-TFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native -fopenmp -DTUNE
 
 POPCNTFLAGS = -DUSE_POPCNT -mpopcnt
 PEXTFLAGS = -DUSE_PEXT -mbmi2 $(POPCNTFLAGS)
@@ -63,9 +62,6 @@ endif
 
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(LIBS) -o $(EXE)$(EXT)
-
-tune:
-	$(CC) $(TFLAGS) $(SRC) $(LIBS) -o $(EXE)$(EXT)
 
 ssse3-popcnt:
 	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(POPCNTFLAGS) $(SSSE3FLAGS) -o $(EXE)-ssse3$(EXT)

@@ -177,6 +177,7 @@ void Board::doMove(Move m, StateInfo& newSi) {
     st = &newSi;
 
     ++gamePly;
+    ++st->pliesFromNull;
     ++st->halfMoves;
 
     Color us = stm;
@@ -297,6 +298,7 @@ void Board::doNullMove(StateInfo& newSi) {
     st = &newSi;
 
     ++gamePly;
+    st->pliesFromNull = 0;
     ++st->halfMoves;
 
     if (st->epSquare != SQ_NONE) {
@@ -333,8 +335,20 @@ bool Board::isRepetition(int ply) const {
 bool Board::isRule50() const { return st->halfMoves > 99; }
 
 bool Board::isInsufficientMaterial() const {
-    return !(typeBB[QUEEN] | typeBB[ROOK] | typeBB[PAWN]) && !(several(colorBB[WHITE]) || several(colorBB[BLACK])) &&
-           (!several(typeBB[KNIGHT] | typeBB[BISHOP]) || (!typeBB[BISHOP] && popcount(typeBB[KNIGHT]) <= 2));
+    if (typeBB[QUEEN] | typeBB[ROOK] | typeBB[PAWN]) return false;
+
+    Bitboard whiteMinors = colorBB[WHITE] & (typeBB[KNIGHT] | typeBB[BISHOP]);
+    Bitboard blackMinors = colorBB[BLACK] & (typeBB[KNIGHT] | typeBB[BISHOP]);
+
+    if (popcount(whiteMinors) + popcount(blackMinors) <= 1) return true;
+
+    if (!typeBB[KNIGHT] && popcount(whiteMinors) == 1 && popcount(blackMinors) == 1) {
+        Square wB = lsb(whiteMinors);
+        Square bB = lsb(blackMinors);
+        if (((fileOf(wB) + rankOf(wB) + fileOf(bB) + rankOf(bB)) & 1) == 0) return true;
+    }
+
+    return false;
 }
 
 std::string Board::move2str(Move m) const {
