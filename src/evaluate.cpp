@@ -29,7 +29,6 @@ Value evaluate(const Board& b) {
     phase = (phase * 256 + 12) / 24;
 
     Value eval = (mg * (256 - phase) + eg * phase) / 256;
-    eval = eval * (100 - b.halfMoves()) / 100;
     eval = b.turn() == WHITE ? eval : -eval;
 
     return eval;

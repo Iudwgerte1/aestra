@@ -33,7 +33,7 @@
 #include "uci.hpp"
 #include "zobrist.hpp"
 
-int main(int argc, char* argv[]) {
+int main() {
     initAttacks();
     initMasks();
     initPSQT();
