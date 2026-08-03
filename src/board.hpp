@@ -28,6 +28,7 @@
 #include "attacks.hpp"
 #include "bitboards.hpp"
 #include "types.hpp"
+#include "psqt.hpp"
 
 struct StateInfo {
     int castlingRights;
@@ -82,10 +83,13 @@ public:
 
     Color turn() const;
     int Ply() const;
+    int halfMoves() const;
     bool isDraw(int ply) const;
     bool isRepetition(int ply) const;
     bool isRule50() const;
     bool isInsufficientMaterial() const;
+
+    Score psqtScore() const;
 
     StateInfo* state() const;
 
@@ -118,6 +122,7 @@ inline void Board::putPiece(Piece p, Square s) {
     colorBB[colorOf(p)] |= s;
     pieceCount[p]++;
     pieceCount[makePiece(colorOf(p), ALL_PIECES)]++;
+    psqt += psqtTable[p][s];
 }
 inline void Board::removePiece(Square s) {
     Piece p = board[s];
@@ -128,6 +133,7 @@ inline void Board::removePiece(Square s) {
     board[s] = NO_PIECE;
     pieceCount[p]--;
     pieceCount[makePiece(colorOf(p), ALL_PIECES)]--;
+    psqt -= psqtTable[p][s];
 }
 
 inline Bitboard Board::pieces() const { return typeBB[ALL_PIECES]; }
@@ -173,6 +179,10 @@ inline Key Board::key() const { return st->key; }
 inline Color Board::turn() const { return stm; }
 
 inline int Board::Ply() const { return gamePly; }
+
+inline int Board::halfMoves() const { return st->halfMoves; }
+
+inline Score Board::psqtScore() const { return psqt; }
 
 inline StateInfo* Board::state() const { return st; }
 

@@ -16,18 +16,18 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "bitboards.hpp"
+#ifndef EVALUATE_HPP
+#define EVALUATE_HPP
 
-std::string prettyBitboard(Bitboard b) {
-    std::string s = "+---+---+---+---+---+---+---+---+\n";
+#include "board.hpp"
+#include "types.hpp"
 
-    for (Rank r = RANK_8;; --r) {
-        for (File f = FILE_A; f <= FILE_H; ++f) s += b & makeSquare(f, r) ? "| X " : "|   ";
-        s += "| " + std::to_string(1 + r) + "\n+---+---+---+---+---+---+---+---+\n";
+#define S(mg, eg) makeScore(Value(mg), Value(eg))
 
-        if (r == RANK_1) break;
-    }
-    s += "  a   b   c   d   e   f   g   h\n";
+constexpr Score TEMPO[COLOR_NB] = {S(25, 12), S(-25, -12)};
 
-    return s;
-}
+#undef S
+
+Value evaluate(const Board& b);
+
+#endif  // EVALUATE_HPP

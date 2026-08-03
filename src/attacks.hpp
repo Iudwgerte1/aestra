@@ -1,6 +1,6 @@
 /*
     Aestra is a UCI-compliant chess engine written in C++.
-    Copyright (C) 2026  Iudwgerte1
+    Copyright (C) 2026  Iudwgerte1 <a09701070@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

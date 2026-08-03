@@ -289,6 +289,33 @@ void Board::undoMove(Move m) {
     --gamePly;
 }
 
+void Board::doNullMove(StateInfo& newSi) {
+    Key k = st->key ^ ZobristTurnKey;
+
+    std::memcpy(&newSi, st, offsetof(StateInfo, key));
+    newSi.prev = st;
+    st = &newSi;
+
+    ++gamePly;
+    ++st->halfMoves;
+
+    if (st->epSquare != SQ_NONE) {
+        k ^= ZobristEnPassantKeys[fileOf(st->epSquare)];
+        st->epSquare = SQ_NONE;
+    }
+
+    st->key = k;
+    st->capturedPiece = NO_PIECE;
+    stm = ~stm;
+    st->kingAttackers = checkers(stm);
+}
+
+void Board::undoNullMove() {
+    stm = ~stm;
+    st = st->prev;
+    --gamePly;
+}
+
 bool Board::isDraw(int ply) const { return isRepetition(ply) || isRule50() || isInsufficientMaterial(); }
 
 bool Board::isRepetition(int ply) const {

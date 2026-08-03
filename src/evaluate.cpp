@@ -16,18 +16,20 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "bitboards.hpp"
+#include "evaluate.hpp"
+Value evaluate(const Board& b) {
+    Score score = b.psqtScore();
+    score += TEMPO[b.turn()];
 
-std::string prettyBitboard(Bitboard b) {
-    std::string s = "+---+---+---+---+---+---+---+---+\n";
+    Value mg = mgValue(score), eg = egValue(score);
 
-    for (Rank r = RANK_8;; --r) {
-        for (File f = FILE_A; f <= FILE_H; ++f) s += b & makeSquare(f, r) ? "| X " : "|   ";
-        s += "| " + std::to_string(1 + r) + "\n+---+---+---+---+---+---+---+---+\n";
+    int phase = 24 - popcount(b.pieces(QUEEN)) * 4
+                   - popcount(b.pieces(ROOK)) * 2
+                   - popcount(b.pieces(KNIGHT, BISHOP));
+    phase = (phase * 256 + 12) / 24;
 
-        if (r == RANK_1) break;
-    }
-    s += "  a   b   c   d   e   f   g   h\n";
+    Value eval = (mg * (256 - phase) + eg * phase) / 256;
+    eval = eval * (100 - b.halfMoves()) / 100;
 
-    return s;
+    return eval;
 }

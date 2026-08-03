@@ -16,18 +16,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "bitboards.hpp"
+#ifndef PSQT_HPP
+#define PSQT_HPP
 
-std::string prettyBitboard(Bitboard b) {
-    std::string s = "+---+---+---+---+---+---+---+---+\n";
+#include "types.hpp"
 
-    for (Rank r = RANK_8;; --r) {
-        for (File f = FILE_A; f <= FILE_H; ++f) s += b & makeSquare(f, r) ? "| X " : "|   ";
-        s += "| " + std::to_string(1 + r) + "\n+---+---+---+---+---+---+---+---+\n";
+extern Score psqtTable[PIECE_NB][SQUARE_NB];
 
-        if (r == RANK_1) break;
-    }
-    s += "  a   b   c   d   e   f   g   h\n";
+void initPSQT();
 
-    return s;
-}
+#endif  // PSQT_HPP

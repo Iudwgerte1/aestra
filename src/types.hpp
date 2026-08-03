@@ -123,9 +123,20 @@ constexpr Score operator+(Score s1, Score s2) {
 constexpr Score operator-(Score s1, Score s2) {
     return makeScore(Value(int(mgValue(s1)) - int(mgValue(s2))), Value(int(egValue(s1)) - int(egValue(s2))));
 }
-constexpr Score operator-(Score s) { return makeScore(Value(-int(mgValue(s))), Value(-int(egValue(s)))); }
 constexpr Score& operator+=(Score& s, Score s2) { return s = s + s2; }
 constexpr Score& operator-=(Score& s, Score s2) { return s = s - s2; }
+
+constexpr Value operator+(Value u, Value v) { return Value(int(u) + int(v)); }
+constexpr Value operator-(Value u, Value v) { return Value(int(u) - int(v)); }
+constexpr Value operator+(Value v, int i) { return Value(int(v) + i); }
+constexpr Value operator-(Value v, int i) { return Value(int(v) - i); }
+constexpr Value operator*(Value v, int i) { return Value(int(v) * i); }
+constexpr Value operator/(Value v, int i) { return Value(int(v) / i); }
+constexpr Value operator+(int i, Value v) { return Value(i + int(v)); }
+constexpr Value operator-(int i, Value v) { return Value(i - int(v)); }
+
+constexpr Value operator-(Value v) { return Value(-int(v));}
+constexpr Score operator-(Score s) { return makeScore(-mgValue(s), -egValue(s)); }
 
 #define ENABLE_INCR_OPERATORS(T)                                \
     constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
