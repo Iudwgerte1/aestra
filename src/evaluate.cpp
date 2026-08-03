@@ -30,6 +30,7 @@ Value evaluate(const Board& b) {
 
     Value eval = (mg * (256 - phase) + eg * phase) / 256;
     eval = eval * (100 - b.halfMoves()) / 100;
+    eval = b.turn() == WHITE ? eval : -eval;
 
     return eval;
 }
