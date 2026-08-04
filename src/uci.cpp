@@ -25,6 +25,7 @@
 #include <string>
 
 #include "board.hpp"
+#include "evaluate.hpp"
 #include "thread.hpp"
 #include "tt.hpp"
 
@@ -101,6 +102,9 @@ void setGo(std::istringstream& iss) {
 }  // namespace
 
 void uciLoop() {
+    states = StateListPtr(new std::deque<StateInfo>(1));
+    board.setPos(STARTPOS, &states->back());
+
     std::string cmd, token;
 
     while (std::getline(std::cin, cmd)) {
@@ -137,6 +141,10 @@ void uciLoop() {
             mainThread.stopSearching();
             mainThread.waitForSearchFinished();
             break;
+        } else if (token == "board") {
+            std::cout << board << std::endl;
+        } else if (token == "eval") {
+            std::cout << evaluate(board) << std::endl;
         }
     }
 }

@@ -1,6 +1,9 @@
-# Aestra
+<div align="center">
+    <img src="logo.png" alt="Aestra Logo" height="200"/>
+    <h1>Aestra</h1>
+</div>
 
-*Note*: Aestra contains AI-generated code and content.
+*Note: Aestra contains AI-generated code and content.*
 
 **Aestra** is a UCI-compliant chess engine written in C++17. It communicates via the [Universal Chess Interface (UCI)](https://www.chessprogramming.org/UCI) protocol and is compatible with any GUI that supports UCI — including [Cute Chess](https://cutechess.com/), [En Croissant](https://encroissant.org/), and others.
 
@@ -42,6 +45,11 @@
 
 - `Hash` (1 MB–1 TB)
 - `Threads` (1–256)
+
+#### Additional Commands
+
+- `board` — print the current board state
+- `eval` — print the current evaluation score
 
 ## Building
 
