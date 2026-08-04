@@ -56,7 +56,7 @@ static int scoreMove(SearchState& ss, Board& board, Move m, Move ttMove, int ply
     MoveType mt = moveType(m);
 
     if (mt == PROMOTION) return 2000000 + pieceValues[promoPiece(m)];
-    if (mt == EN_PASSANT) return 9999999;  // En passant is forced - r/AnarchyChess
+    if (mt == EN_PASSANT) return 9999999;  // Google en passant. - r/AnarchyChess
     if (board.pieceOn(to) != NO_PIECE) {
         return 1000000 + pieceValues[typeOf(board.pieceOn(to))] * 16 - pieceValues[typeOf(board.pieceOn(fromSq(m)))];
     }
