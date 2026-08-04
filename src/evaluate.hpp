@@ -24,7 +24,7 @@
 
 #define S(mg, eg) makeScore(Value(mg), Value(eg))
 
-constexpr Score TEMPO[COLOR_NB] = {S(25, 12), S(-25, -12)};
+constexpr Score TEMPO[COLOR_NB] = {S(25, 29), S(-25, -29)};
 
 #undef S
 
