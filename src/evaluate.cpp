@@ -23,9 +23,7 @@ Value evaluate(const Board& b) {
 
     int mg = mgValue(score), eg = egValue(score);
 
-    int phase = 24 - popcount(b.pieces(QUEEN)) * 4
-                   - popcount(b.pieces(ROOK)) * 2
-                   - popcount(b.pieces(KNIGHT, BISHOP));
+    int phase = 24 - popcount(b.pieces(QUEEN)) * 4 - popcount(b.pieces(ROOK)) * 2 - popcount(b.pieces(KNIGHT, BISHOP));
     phase = (phase * 256 + 12) / 24;
 
     int eval = (mg * (256 - phase) + eg * phase) / 256;

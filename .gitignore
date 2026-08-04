@@ -5,4 +5,7 @@ AGENTS.md
 CLAUDE.md
 
 *.exe
+*.cmd
+
 *.epd
+*.pgn

@@ -26,8 +26,8 @@
 #include <thread>
 #include <vector>
 
-#include "types.hpp"
 #include "search.hpp"
+#include "types.hpp"
 
 class Thread {
 public:
@@ -70,7 +70,6 @@ public:
 
 private:
     std::vector<std::unique_ptr<Thread>> helpers;
-
 };
 
 #endif  // THREAD_HPP
