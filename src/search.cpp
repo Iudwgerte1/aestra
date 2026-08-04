@@ -56,10 +56,9 @@ static int scoreMove(SearchState& ss, Board& board, Move m, Move ttMove, int ply
     MoveType mt = moveType(m);
 
     if (mt == PROMOTION) return 2000000 + pieceValues[promoPiece(m)];
-    if (mt == EN_PASSANT) return 9999999;  // Google en passant. - r/AnarchyChess
-    if (board.pieceOn(to) != NO_PIECE) {
+    if (mt == EN_PASSANT) return 1000000 + pieceValues[PAWN] * 16 - pieceValues[PAWN];
+    if (board.pieceOn(to) != NO_PIECE)
         return 1000000 + pieceValues[typeOf(board.pieceOn(to))] * 16 - pieceValues[typeOf(board.pieceOn(fromSq(m)))];
-    }
 
     if (m == ss.killers[ply][0]) return 900000;
     if (m == ss.killers[ply][1]) return 800000;
@@ -95,9 +94,8 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     if (inCheck) {
         genLegalMoves(board, moves);
         if (moves.empty()) return matedIn(ply);
-    } else {
+    } else
         genNoisyMoves(board, moves);
-    }
 
     for (int i = 0; i < moves.size(); ++i) ss.moveScores[i] = scoreMove(ss, board, moves[i], MOVE_NONE, ply);
 
@@ -209,8 +207,7 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
                 board.undoMove(m);
                 return VALUE_ZERO;
             }
-            if (reduction && score > alpha)
-                score = -negamax(ss, board, -alpha - 1, -alpha, newDepth, ply + 1);
+            if (reduction && score > alpha) score = -negamax(ss, board, -alpha - 1, -alpha, newDepth, ply + 1);
             if (score > alpha && score < beta) doFullSearch = true;
         }
         if (doFullSearch) score = -negamax(ss, board, -beta, -alpha, newDepth, ply + 1);
@@ -235,7 +232,7 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
                         ss.killers[ply][0] = m;
                     }
                     int& h = ss.history[board.turn()][fromSq(m)][toSq(m)];
-                    h = std::clamp(h + depth * depth, -32000, 32000);
+                    h = std::clamp(h + depth * depth, int(-VALUE_MATE), int(VALUE_MATE));
                 }
                 break;
             }
@@ -291,7 +288,7 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
         int timeLeft = board.turn() == WHITE ? limits.wtime : limits.btime;
         int inc = board.turn() == WHITE ? limits.winc : limits.binc;
         int moveTime = timeLeft / 20 + inc * 3 / 4;
-        ss.timeLimit = std::clamp(moveTime, 10, timeLeft / 4);
+        ss.timeLimit = std::clamp(moveTime, 10, std::max(10, timeLeft / 4));
     } else {
         ss.timeLimit = 0;
     }
