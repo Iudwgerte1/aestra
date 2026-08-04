@@ -31,6 +31,8 @@
 ### Evaluation
 
 - Material values and piece‑square tables in middlegame/endgame pairs
+- Bishop pair bonus
+- Mobility for bishops, rooks, and queens
 - Tapered evaluation based on game phase
 - Small tempo bonus for the side to move
 

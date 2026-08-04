@@ -25,5 +25,6 @@ void initMasks();
 
 int distanceBetween(Square sq1, Square sq2);
 Bitboard bitsBetween(Square sq1, Square sq2);
+Bitboard passedPawnMask(Color c, Square sq);
 
 #endif  // MASKS_HPP

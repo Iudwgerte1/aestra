@@ -22,12 +22,6 @@
 #include "board.hpp"
 #include "types.hpp"
 
-#define S(mg, eg) makeScore(Value(mg), Value(eg))
-
-constexpr Score TEMPO[COLOR_NB] = {S(25, 29), S(-25, -29)};
-
-#undef S
-
 Value evaluate(const Board& b);
 
 #endif  // EVALUATE_HPP
