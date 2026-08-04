@@ -63,7 +63,7 @@ Or run `make release` to build all hand‑tuned variants at once:
 | `pext`          | popcount + BMI2 PEXT                                |
 | `popcnt`        | popcount                                            |
 
-Additional target: `make basic` (native, fastest on the build machine). All builds use `-O3`; the release variants additionally link statically and output the binary as `Aestra.exe`.
+Additional target: `make basic` (native, fastest on the build machine).
 
 ## Usage
 

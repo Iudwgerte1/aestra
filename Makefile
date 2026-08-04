@@ -30,10 +30,7 @@ CFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native
 POPCNTFLAGS = -DUSE_POPCNT -mpopcnt
 PEXTFLAGS = -DUSE_PEXT -mbmi2 $(POPCNTFLAGS)
 
-SSSE3FLAGS  = -DUSE_SSSE3 -msse -msse2 -msse3 -mssse3
-AVXFLAGS    = -DUSE_AVX -mavx -msse4.1 $(SSSE3FLAGS)
-AVX2FLAGS   = -DUSE_AVX2 -mavx2 -mfma $(AVXFLAGS)
-
+# The following makefile lines are copied from Ethereal to detect CPU features automatically
 PROPS = $(shell echo | $(CC) -march=native -E -dM -)
 
 ifneq ($(findstring __POPCNT__, $(PROPS)),)
@@ -48,37 +45,16 @@ ifneq ($(findstring __BMI2__, $(PROPS)),)
 	endif
 endif
 
-ifneq ($(findstring __AVX2__, $(PROPS)),)
-	CFLAGS += -DUSE_AVX2
-endif
-
-ifneq ($(findstring __AVX__, $(PROPS)),)
-	CFLAGS += -DUSE_AVX
-endif
-
-ifneq ($(findstring __SSSE3__, $(PROPS)),)
-	CFLAGS += -DUSE_SSSE3
-endif
-
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(LIBS) -o $(EXE)$(EXT)
 
-ssse3-popcnt:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(POPCNTFLAGS) $(SSSE3FLAGS) -o $(EXE)-ssse3$(EXT)
+none:
+	$(CC) $(RFLAGS) $(SRC) $(LIBS) -o $(EXE)-none$(EXT)
 
-ssse3-pext:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(PEXTFLAGS)	$(SSSE3FLAGS) -o $(EXE)-pext-ssse3$(EXT)
+popcnt:
+	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(POPCNTFLAGS) -o $(EXE)-popcnt$(EXT)
 
-avx-popcnt:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(POPCNTFLAGS) $(AVXFLAGS) -o $(EXE)-avx$(EXT)
+pext:
+	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(PEXTFLAGS) -o $(EXE)-pext$(EXT)
 
-avx-pext:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(PEXTFLAGS) $(AVXFLAGS) -o $(EXE)-pext-avx$(EXT)
-
-avx2-popcnt:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(POPCNTFLAGS) $(AVX2FLAGS) -o $(EXE)-avx2$(EXT)
-
-avx2-pext:
-	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(PEXTFLAGS) $(AVX2FLAGS) -o $(EXE)-pext-avx2$(EXT)
-
-release: ssse3-popcnt avx-popcnt avx2-popcnt ssse3-pext avx-pext avx2-pext
+release: none popcnt pext
