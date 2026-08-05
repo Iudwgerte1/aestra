@@ -135,7 +135,7 @@ constexpr Value operator/(Value v, int i) { return Value(int(v) / i); }
 constexpr Value operator+(int i, Value v) { return Value(i + int(v)); }
 constexpr Value operator-(int i, Value v) { return Value(i - int(v)); }
 
-constexpr Value operator-(Value v) { return Value(-int(v));}
+constexpr Value operator-(Value v) { return Value(-int(v)); }
 constexpr Score operator-(Score s) { return makeScore(-mgValue(s), -egValue(s)); }
 
 #define ENABLE_INCR_OPERATORS(T)                                \
@@ -200,5 +200,19 @@ constexpr PieceType promoPiece(Move m) { return PieceType(((m >> 12) & 3) + KNIG
 constexpr MoveType moveType(Move m) { return MoveType(m & (3 << 14)); }
 
 const std::string STARTPOS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+class PRNG {
+public:
+    PRNG(uint64_t seed) : s(seed) {}
+    uint64_t rand64() {
+        s ^= s >> 12;
+        s ^= s << 25;
+        s ^= s >> 27;
+
+        return s * 2685821657736338717ull;
+    }
+
+    uint64_t s;
+};
 
 #endif  // TYPES_HPP

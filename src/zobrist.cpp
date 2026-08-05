@@ -23,26 +23,18 @@ Key ZobristEnPassantKeys[FILE_NB];
 Key ZobristCastlingKeys[CASTLING_NB];
 Key ZobristTurnKey;
 
-uint64_t rand64() {
-    static uint64_t seed = 1070372ull;
-
-    seed ^= seed >> 12;
-    seed ^= seed << 25;
-    seed ^= seed >> 27;
-
-    return seed * 2685821657736338717ull;
-}
-
 void initZobrist() {
+    PRNG prng(0x3FF6A09E667F3BCDull);
+
     for (PieceType pt = PAWN; pt <= KING; ++pt)
         for (Square sq = SQ_A1; sq <= SQ_H8; ++sq) {
-            ZobristKeys[makePiece(WHITE, pt)][sq] = rand64();
-            ZobristKeys[makePiece(BLACK, pt)][sq] = rand64();
+            ZobristKeys[makePiece(WHITE, pt)][sq] = prng.rand64();
+            ZobristKeys[makePiece(BLACK, pt)][sq] = prng.rand64();
         }
 
-    for (File f = FILE_A; f < FILE_NB; ++f) ZobristEnPassantKeys[f] = rand64();
+    for (File f = FILE_A; f < FILE_NB; ++f) ZobristEnPassantKeys[f] = prng.rand64();
 
-    for (int cr = 0; cr < CASTLING_NB; ++cr) ZobristCastlingKeys[cr] = rand64();
+    for (int cr = 0; cr < CASTLING_NB; ++cr) ZobristCastlingKeys[cr] = prng.rand64();
 
-    ZobristTurnKey = rand64();
+    ZobristTurnKey = prng.rand64();
 }

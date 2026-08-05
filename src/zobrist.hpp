@@ -26,8 +26,6 @@ extern Key ZobristEnPassantKeys[FILE_NB];
 extern Key ZobristCastlingKeys[CASTLING_NB];
 extern Key ZobristTurnKey;
 
-uint64_t rand64();
-
 void initZobrist();
 
 #endif  // ZOBRIST_HPP

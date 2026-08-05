@@ -44,12 +44,6 @@ constexpr Bitboard RANK_8BB = RANK_1BB << (7 * 8);
 constexpr Bitboard FilesBB[FILE_NB] = {FILE_ABB, FILE_BBB, FILE_CBB, FILE_DBB, FILE_EBB, FILE_FBB, FILE_GBB, FILE_HBB};
 constexpr Bitboard RanksBB[RANK_NB] = {RANK_1BB, RANK_2BB, RANK_3BB, RANK_4BB, RANK_5BB, RANK_6BB, RANK_7BB, RANK_8BB};
 
-constexpr Bitboard WHITE_SQUARES = 0x55AA55AA55AA55AAull;
-constexpr Bitboard BLACK_SQUARES = 0xAA55AA55AA55AA55ull;
-
-constexpr Bitboard QUEEN_WING = FILE_ABB | FILE_BBB | FILE_CBB | FILE_DBB;
-constexpr Bitboard KING_WING = FILE_EBB | FILE_FBB | FILE_GBB | FILE_HBB;
-
 constexpr Bitboard PROMOTION_RANKS = RANK_1BB | RANK_8BB;
 
 constexpr Bitboard squareBB(Square s) { return 1ull << s; }

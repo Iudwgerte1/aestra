@@ -75,6 +75,12 @@ void setGo(std::istringstream& iss) {
     mainThread.limits = Limits();
 
     while (iss >> token) {
+        if (token == "perft") {
+            int depth;
+            iss >> depth;
+            board.perft(depth, false);
+            return;
+        }
         if (token == "depth") {
             iss >> mainThread.limits.depth;
         } else if (token == "movetime") {

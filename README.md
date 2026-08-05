@@ -101,7 +101,7 @@ Additional thanks to:
 
 - [The Chess Programming Wiki](https://www.chessprogramming.org/)
 
-AI tools (especially [Claude Code](https://claude.ai/) and [DeepSeek](https://deepseek.com/)) have also been used throughout the development process, thanks to modern technological advancements.
+AI tools (especially [Claude Code](https://anthropic.com/claude-code) and [DeepSeek](https://deepseek.com/)) have also been used throughout the development process, thanks to modern technological advancements.
 
 ## License
 
