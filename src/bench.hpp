@@ -16,37 +16,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <chrono>
-#include <iostream>
+#ifndef BENCH_HPP
+#define BENCH_HPP
 
-#include "attacks.hpp"
-#include "bench.hpp"
-#include "bitboards.hpp"
-#include "board.hpp"
-#include "evaluate.hpp"
-#include "masks.hpp"
-#include "movegen.hpp"
-#include "psqt.hpp"
-#include "search.hpp"
-#include "thread.hpp"
-#include "tt.hpp"
-#include "types.hpp"
-#include "uci.hpp"
-#include "zobrist.hpp"
+void runBench(int argc, char* argv[]);
 
-int main(int argc, char* argv[]) {
-    initAttacks();
-    initMasks();
-    initPSQT();
-    initZobrist();
-
-    
-    if (argc > 1 && strcmp(argv[1], "bench") == 0) {
-        runBench(argc, argv);
-        return 0;
-    }
-
-    uciLoop();
-
-    return 0;
-}
+#endif // BENCH_HPP
