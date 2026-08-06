@@ -48,8 +48,9 @@
 
 #### Additional Commands
 
-- `board` — print the current board state
-- `eval` — print the current evaluation score
+- `board` - print the current board state
+- `eval` - print the current evaluation score
+- `bench` - run the benchmarking suite
 
 ## Building
 
@@ -111,8 +112,16 @@ Aestra is free software distributed under the terms of the [GNU General Public L
 
 The following parts of Aestra have been AI‑generated:
 
-- `search.hpp/cpp`
-- `thread.hpp/cpp`
-- `uci.hpp/cpp`
+- `search.hpp/cpp` - Most of the search code is AI-generated.
+- `thread.hpp/cpp` - All thread-related code is AI-generated.
+- `uci.hpp/cpp` - Most of the UCI-related code is AI-generated, excluding the additional commands.
+- `logo.png` - This is converted from a svg file, which is AI-generated.
 
 AI tools have also been used continuously for debugging and improving code readability.
+
+## External Data Sources
+
+The following files were from external sources:
+
+- `bench.csv`: Directly from Ethereal's benchmarking data
+- `attack.hpp` magics: Copied from Ethereal's attack.hpp
