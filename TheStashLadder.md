@@ -18,4 +18,4 @@ Score of Aestra vs Stash12: 385 - 498 - 117  [0.444] 1000
 Elo difference: -39.4 +/- 20.3, LOS: 0.0 %, DrawRatio: 11.7 %
 ```
 
-Estimate elo: 1521~1625
+Estimate elo: 1638~1646
