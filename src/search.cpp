@@ -31,12 +31,15 @@ std::mutex ioMutex;
 
 static constexpr int pieceValues[PIECE_TYPE_NB] = {0, 100, 300, 320, 500, 1000, 20000, 0};
 
+static uint64_t elapsedMs(const SearchState& ss) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ss.startTime).count();
+}
+
 static void checkLimit(SearchState& ss) {
     if (ss.limits.nodes && ss.nodes >= (uint64_t)ss.limits.nodes)
         ss.stop = true;
     else if (ss.timeLimit) {
-        auto now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - ss.startTime).count() >= ss.timeLimit)
+        if (elapsedMs(ss) >= ss.timeLimit)
             ss.stop = true;
     }
 }
@@ -121,11 +124,13 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
 }
 
 static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int depth, int ply) {
-    ss.pvLen[ply] = ply;
 
     ++ss.nodes;
     if ((ss.nodes & 1023) == 0) checkLimit(ss);
     if (ss.stop) return VALUE_ZERO;
+
+    if (ply >= MAX_PLY) return evaluate(board);
+    ss.pvLen[ply] = ply;
 
     bool inCheck = board.kingAttackers();
     bool isPV = int(beta) - int(alpha) > 1;
@@ -141,7 +146,6 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
     }
 
     if (depth <= 0) return quiescence(ss, board, alpha, beta, ply);
-    if (ply >= MAX_PLY) return evaluate(board);
 
     bool found = false;
     TTEntry* tte = TT.probe(board.key(), found);
@@ -252,8 +256,7 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
 }
 
 void printInfo(const SearchState& ss, const Board& board, int depth, Value score) {
-    uint64_t time =
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ss.startTime).count();
+    uint64_t time = elapsedMs(ss);
     uint64_t nps = time ? ss.nodes * 1000 / time : 0;
 
     std::lock_guard<std::mutex> lock(ioMutex);
@@ -279,17 +282,19 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     TT.newSearch();
     std::fill(&ss.killers[0][0], &ss.killers[0][0] + MAX_PLY * 2, MOVE_NONE);
     std::memset(ss.history, 0, sizeof(ss.history));
-    ss.pvTable[0][0] = MOVE_NONE;  // drawn root leaves the PV empty; report "bestmove 0000"
+    ss.pvTable[0][0] = MOVE_NONE;
 
     SearchResult result;
 
     if (limits.movetime > 0) {
+        ss.softTime = limits.movetime;
         ss.timeLimit = limits.movetime;
     } else if (limits.wtime || limits.btime) {
         int timeLeft = board.turn() == WHITE ? limits.wtime : limits.btime;
         int inc = board.turn() == WHITE ? limits.winc : limits.binc;
         int moveTime = timeLeft / 20 + inc * 3 / 4;
-        ss.timeLimit = std::clamp(moveTime, 10, std::max(10, timeLeft / 4));
+        ss.softTime = std::clamp(moveTime, 10, std::max(10, timeLeft / 4));
+        ss.timeLimit = std::min(ss.softTime * 4, std::max(ss.softTime, timeLeft / 4));
     } else {
         ss.timeLimit = 0;
     }
@@ -297,6 +302,8 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     int maxDepth = limits.infinite ? MAX_PLY - 1 : std::min(limits.depth, MAX_PLY - 1);
 
     Value bestScore = VALUE_NONE;
+    bool stable = true;
+    Move prevBest = MOVE_NONE;
     for (int depth = 1; depth <= maxDepth && !ss.stop; ++depth) {
         Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 

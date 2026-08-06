@@ -57,8 +57,8 @@ void initMasks() {
     }
 
     for (Square sq = SQ_A2; sq <= SQ_H7; ++sq) {
-        ConnectedPawnMask[WHITE][sq] = pawnAttacks(BLACK, sq) & pawnAttacks(BLACK, sq + NORTH);
-        ConnectedPawnMask[BLACK][sq] = pawnAttacks(WHITE, sq) & pawnAttacks(WHITE, sq + SOUTH);
+        ConnectedPawnMask[WHITE][sq] = pawnAttacks(BLACK, sq) | pawnAttacks(BLACK, sq + NORTH);
+        ConnectedPawnMask[BLACK][sq] = pawnAttacks(WHITE, sq) | pawnAttacks(WHITE, sq + SOUTH);
     }
 }
 

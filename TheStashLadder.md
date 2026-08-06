@@ -1,20 +1,21 @@
 # The Stash Ladder
 
+tc=8+0.08
+
 ```
-Score of Aestra vs Stash9: 462 - 50 - 101  [0.836] 613
-...      Aestra playing White: 231 - 27 - 49  [0.832] 307
-...      Aestra playing Black: 231 - 23 - 52  [0.840] 306
-...      White vs Black: 254 - 258 - 101  [0.497] 613
-Elo difference: 283.0 +/- 31.2, LOS: 100.0 %, DrawRatio: 16.5 %
-SPRT: llr 0 (0.0%), lbound -inf, ubound inf
+Score of Aestra vs Stash9: 866 - 79 - 55  [0.893] 1000
+...      Aestra playing White: 434 - 39 - 27  [0.895] 500
+...      Aestra playing Black: 432 - 40 - 28  [0.892] 500
+...      White vs Black: 474 - 471 - 55  [0.501] 1000
+Elo difference: 369.5 +/- 32.5, LOS: 100.0 %, DrawRatio: 5.5 %
 ```
 
 ```
-Score of Aestra vs Stash12: 3871 - 6297 - 2901  [0.407] 13069
-...      Aestra playing White: 1963 - 3127 - 1445  [0.411] 6535
-...      Aestra playing Black: 1908 - 3170 - 1456  [0.403] 6534
-...      White vs Black: 5133 - 5035 - 2901  [0.504] 13069
-Elo difference: -65.3 +/- 5.3, LOS: 0.0 %, DrawRatio: 22.2 %
+Score of Aestra vs Stash12: 385 - 498 - 117  [0.444] 1000
+...      Aestra playing White: 184 - 259 - 57  [0.425] 500
+...      Aestra playing Black: 201 - 239 - 60  [0.462] 500
+...      White vs Black: 423 - 460 - 117  [0.481] 1000
+Elo difference: -39.4 +/- 20.3, LOS: 0.0 %, DrawRatio: 11.7 %
 ```
 
 Estimate elo: 1521~1625

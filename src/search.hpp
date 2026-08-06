@@ -57,6 +57,7 @@ struct SearchState {
     int moveScores[MAX_MOVES];
     std::chrono::steady_clock::time_point startTime;
     int timeLimit = 0;
+    int softTime = 0;
     int threadIdx = 0;
 };
 

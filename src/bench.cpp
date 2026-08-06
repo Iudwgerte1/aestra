@@ -52,13 +52,16 @@ void runBench(int argc, char* argv[]) {
     limits.depth = depth;
 
     mThread.limits = limits;
+    
+    auto states = StateListPtr(new std::deque<StateInfo>(1));
 
     for (int i = 0; strcmp(Benchmarks[i], ""); ++i) {
         auto startTime = std::chrono::steady_clock::now();
 
-        auto states = StateListPtr(new std::deque<StateInfo>(1));
         board.setPos(Benchmarks[i], &states->back());
         mThread.startSearching(board);
+
+        mThread.waitForSearchFinished();
 
         times[i] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime).count();
         nodes[i] = mThread.result.nodes;
@@ -70,8 +73,6 @@ void runBench(int argc, char* argv[]) {
 
         TT.clear();
     }
-
-    mThread.waitForSearchFinished();
 
     std::cout << "Bench: " << totalNodes << " nodes " << int(1000.0f * totalNodes / totalTime) << " nps" << std::endl;
 }

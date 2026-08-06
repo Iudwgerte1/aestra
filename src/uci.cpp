@@ -128,6 +128,7 @@ void uciLoop() {
             if (name == "Hash") {
                 iss >> value;
                 iss >> value;
+                mainThread.waitForSearchFinished();
                 TT.setSize((size_t)std::stoi(value));
             } else if (name == "Threads") {
                 iss >> value;

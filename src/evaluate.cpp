@@ -68,7 +68,7 @@ Score evalPawns(const Board& b, Color c) {
         if (!stoppers) pawnScore += PASSED_PAWNS[rankOf(s) ^ (c == WHITE ? 0 : 7)];
 
         if (connectedPawnMask(c, s) & ourPawns) pawnScore += CONNECTED_PAWN[int(s) ^ (c == WHITE ? 0 : 56)];
-        if ((adjacentFiles(s) & ourPawns) == 0) pawnScore += PAWN_ISOLATED;
+        if ((adjacentFiles(s) & (ourPawns ^ s)) == 0) pawnScore += PAWN_ISOLATED;
         if (RanksBB[rankOf(s)] & ourPawns) pawnScore += PAWN_DOUBLED;
     }
 
