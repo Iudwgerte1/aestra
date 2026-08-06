@@ -323,11 +323,13 @@ bool Board::isDraw(int ply) const { return isRepetition(ply) || isRule50() || is
 bool Board::isRepetition(int ply) const {
     Key k = st->key;
     int cnt = 0;
+
+    int bound = std::min(st->halfMoves, gamePly);
+    if (st->pliesFromNull < ply) bound = std::min(bound, st->pliesFromNull);
+
     StateInfo* prev = st->prev;
-    for (int i = 0; prev && i < ply; ++i) {
-        if (k == prev->key) ++cnt;
-        if (cnt == 2) return true;
-        prev = prev->prev;
+    for (int i = 1; prev && i <= bound; ++i, prev = prev->prev) {
+        if (k == prev->key && (++cnt + (i <= ply)) == 2) return true;
     }
     return false;
 }

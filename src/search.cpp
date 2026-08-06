@@ -130,9 +130,9 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
     bool inCheck = board.kingAttackers();
     bool isPV = int(beta) - int(alpha) > 1;
 
-    if (ply > 0) {
-        if (board.isDraw(std::min(ply, board.state()->pliesFromNull))) return VALUE_DRAW;
+    if (board.isDraw(ply)) return VALUE_DRAW;
 
+    if (ply > 0) {
         alpha = std::max(alpha, matedIn(ply));
         beta = std::min(beta, mateIn(ply + 1));
         if (alpha >= beta) return alpha;
@@ -279,6 +279,7 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     TT.newSearch();
     std::fill(&ss.killers[0][0], &ss.killers[0][0] + MAX_PLY * 2, MOVE_NONE);
     std::memset(ss.history, 0, sizeof(ss.history));
+    ss.pvTable[0][0] = MOVE_NONE;  // drawn root leaves the PV empty; report "bestmove 0000"
 
     SearchResult result;
 
@@ -326,8 +327,6 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
         result.nodes = ss.nodes;
 
         report(depth, score);
-
-        if (bestScore >= mateIn(2)) break;
     }
 
     return result;
