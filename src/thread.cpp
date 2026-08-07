@@ -34,6 +34,7 @@ Thread::~Thread() {
 
 void Thread::startSearching(Board& b) {
     if (stdThread.joinable()) stdThread.join();
+    ss.stop = false;
 
     std::memcpy(&ownBoard, &b, sizeof(Board));
     rootBoard = &ownBoard;

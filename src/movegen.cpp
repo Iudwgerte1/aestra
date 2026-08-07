@@ -164,11 +164,11 @@ void genNoisyMoves(const Board& board, MoveList& moves) {
     buildJumperMoves(&kingAttacks, moves, kings, them);
 }
 
-void genLegalMoves(const Board& board, MoveList& moves, bool noisy) {
+void genLegalMoves(const Board& board, MoveList& moves, bool quiet, bool noisy) {
     MoveList pseudoLegals;
 
-    if (!noisy) genQuietMoves(board, pseudoLegals);
-    genNoisyMoves(board, pseudoLegals);
+    if (quiet) genQuietMoves(board, pseudoLegals);
+    if (noisy) genNoisyMoves(board, pseudoLegals);
 
     Board tmpBoard;
     memcpy(&tmpBoard, &board, sizeof(Board));

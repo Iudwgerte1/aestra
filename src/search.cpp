@@ -31,16 +31,18 @@ std::mutex ioMutex;
 
 static constexpr int pieceValues[PIECE_TYPE_NB] = {0, 100, 300, 320, 500, 1000, 20000, 0};
 
+static Value futilityMargin(Depth d) { return Value(150 * d); }
+
 static uint64_t elapsedMs(const SearchState& ss) {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ss.startTime).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ss.startTime)
+        .count();
 }
 
 static void checkLimit(SearchState& ss) {
     if (ss.limits.nodes && ss.nodes >= (uint64_t)ss.limits.nodes)
         ss.stop = true;
     else if (ss.timeLimit) {
-        if ((int)elapsedMs(ss) >= ss.timeLimit)
-            ss.stop = true;
+        if ((int)elapsedMs(ss) >= ss.timeLimit) ss.stop = true;
     }
 }
 
@@ -86,6 +88,7 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     if (ply >= MAX_PLY) return evaluate(board);
 
     bool inCheck = board.kingAttackers();
+    bool isPV = int(beta) - int(alpha) > 1;
     Value eval = evaluate(board);
 
     if (board.isDraw(ply)) return VALUE_DRAW;
@@ -100,7 +103,7 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
         genLegalMoves(board, moves);
         if (moves.empty()) return matedIn(ply);
     } else
-        genLegalMoves(board, moves, true);
+        genLegalMoves(board, moves, false, true);
 
     for (int i = 0; i < moves.size(); ++i) ss.moveScores[i] = scoreMove(ss, board, moves[i], MOVE_NONE, ply);
 
@@ -109,7 +112,6 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
 
         StateInfo newSi;
         board.doMove(m, newSi);
-
         Value score = -quiescence(ss, board, -beta, -alpha, ply + 1);
         board.undoMove(m);
 
@@ -121,8 +123,7 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     return alpha;
 }
 
-static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int depth, int ply) {
-
+static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int depth, int ply, bool canDoNull = true) {
     ++ss.nodes;
     if ((ss.nodes & 1023) == 0) checkLimit(ss);
     if (ss.stop) return VALUE_ZERO;
@@ -130,46 +131,57 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
     if (ply >= MAX_PLY) return evaluate(board);
     ss.pvLen[ply] = ply;
 
+    Value eval = VALUE_NONE;
+
     bool inCheck = board.kingAttackers();
     bool isPV = int(beta) - int(alpha) > 1;
+    bool isRoot = isPV && ply == 0;
 
     if (board.isDraw(ply)) return VALUE_DRAW;
 
-    if (ply > 0) {
+    if (!isRoot) {
         alpha = std::max(alpha, matedIn(ply));
         beta = std::min(beta, mateIn(ply + 1));
         if (alpha >= beta) return alpha;
-
-        ss.seldepth = std::max(ss.seldepth, ply);
     }
 
     if (depth <= 0) return quiescence(ss, board, alpha, beta, ply);
 
-    bool found = false;
-    TTEntry* tte = TT.probe(board.key(), found);
-    Move ttMove = found ? tte->move() : MOVE_NONE;
-    if (found && !isPV && tte->depth() >= depth) {
-        Value ttValue = valueFromTT(tte->value(), ply);
-        if (tte->bound() == BOUND_EXACT || (tte->bound() == BOUND_LOWER && ttValue >= beta) ||
-            (tte->bound() == BOUND_UPPER && ttValue <= alpha))
-            return ttValue;
+    bool ttHit = false;
+    TTEntry* tte = TT.probe(board.key(), ttHit);
+    Value ttValue = ttHit ? valueFromTT(tte->value(), ply) : VALUE_NONE;
+    Move ttMove = ttHit ? tte->move() : MOVE_NONE;
+
+    if (!isPV && ttHit && tte->depth() >= depth && ttValue != VALUE_NONE &&
+        ((ttValue >= beta ? (tte->bound() & BOUND_LOWER) : (tte->bound() & BOUND_UPPER)))) {
+        return ttValue;
     }
 
-    if (!isPV && depth >= 3 && !inCheck && board.count(ALL_PIECES) > 6) {
-        if (evaluate(board) >= beta) return beta;
+    if (inCheck) {
+        eval = VALUE_NONE;
+        goto moves_loop;
+    } else if (ttHit) {
+        if (ttValue != VALUE_NONE)
+            if (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER))
+                eval = ttValue;
+    }
+
+    if (!isRoot && depth < 7 && eval - futilityMargin(depth) >= beta && eval < VALUE_MATE && popcount(board.pieces()) > 6)
+        return eval;
+
+    if (canDoNull && !isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
 
         StateInfo newSi;
         board.doNullMove(newSi);
-        Value score = -negamax(ss, board, -beta, -beta + 1, depth - 4, ply + 1);
+        Value score = -negamax(ss, board, -beta, -beta + 1, depth - 4, ply + 1, false);
         board.undoNullMove();
 
-        if (ss.stop) return VALUE_ZERO;
         if (score >= beta) return beta;
     }
-
+    
+moves_loop:
     MoveList moves;
-    genQuietMoves(board, moves);
-    genNoisyMoves(board, moves);
+    genLegalMoves(board, moves);
 
     if (moves.empty()) return inCheck ? matedIn(ply) : VALUE_DRAW;
 
@@ -188,10 +200,6 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
 
         StateInfo newSi;
         board.doMove(m, newSi);
-        if (board.checkers(~board.turn())) {
-            board.undoMove(m);
-            continue;
-        }
         ++moveCount;
 
         bool givesCheck = board.kingAttackers();
@@ -224,8 +232,9 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
             bestMove = m;
 
             ss.pvTable[ply][ply] = m;
-            for (int j = ply + 1; j < ss.pvLen[ply + 1]; ++j) ss.pvTable[ply][j] = ss.pvTable[ply + 1][j];
-            ss.pvLen[ply] = ss.pvLen[ply + 1];
+            int pvLenChild = ply + 1 < MAX_PLY ? ss.pvLen[ply + 1] : ply + 1;
+            for (int j = ply + 1; j < pvLenChild; ++j) ss.pvTable[ply][j] = ss.pvTable[ply + 1][j];
+            ss.pvLen[ply] = pvLenChild;
 
             if (score >= beta) {
                 if (moveType(m) == NORMAL && board.pieceOn(toSq(m)) == NO_PIECE) {
@@ -273,7 +282,6 @@ void printInfo(const SearchState& ss, const Board& board, int depth, Value score
 SearchResult search(SearchState& ss, Board& board, const Limits& limits,
                     const std::function<void(int, Value)>& report) {
     ss.limits = limits;
-    ss.stop = false;
     ss.nodes = 0;
     ss.seldepth = 0;
     ss.startTime = std::chrono::steady_clock::now();
