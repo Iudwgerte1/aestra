@@ -24,10 +24,11 @@
 - **PVS** — principal variation search with zero‑window searches on the remaining moves
 - **Quiescence search** with stand‑pat, extended to all legal moves when in check
 - **Transposition table**: 4 entries per bucket, mate‑distance pruning.
+- **Futility pruning**: 150 cp threshold
 - **Null‑move pruning** (reduction R = 4)
 - **Late Move Reductions (LMR)**, with re‑search on fail‑high
 - **Check extensions** (+1 ply for moves giving check)
-- **Move ordering**: en passant → TT move → promotions → MVV‑LVA captures → killer moves → history heuristic
+- **Move ordering**: TT move → promotions → MVV‑LVA captures → killer moves → history heuristic
 - **Lazy SMP** multithreading (up to 256 threads) with root move rotation
 - Time management
 
@@ -36,6 +37,9 @@
 - Material values and piece‑square tables in middlegame/endgame pairs
 - Bishop pair bonus
 - Mobility for bishops, rooks, and queens
+- Passed pawns, connected pawns, doubled pawns, isolated pawns
+- Rook on open files or semi-open files
+- Rook on the seventh rank bonus
 - Tapered evaluation based on game phase
 - Small tempo bonus for the side to move
 
@@ -98,6 +102,12 @@ Aestra has drawn inspiration from the following engines:
 - [Ethereal](https://github.com/AndyGrant/Ethereal) by Andrew Grant
 - [Altair](https://github.com/Alex2262/AltairChessEngine) by Alexander Tian
 
+The following tools were used for development:
+
+- [Cute Chess](https://cutechess.com/)
+- [Fastchess](https://github.com/Disservin/fastchess)
+- [Texel Tuner](https://github.com/GediminasMasaitis/texel-tuner)
+
 Additional thanks to:
 
 - [The Chess Programming Wiki](https://www.chessprogramming.org/)
@@ -114,14 +124,14 @@ The following parts of Aestra have been AI‑generated:
 
 - `search.hpp/cpp` - Most of the search code is AI-generated.
 - `thread.hpp/cpp` - All thread-related code is AI-generated.
-- `uci.hpp/cpp` - Most of the UCI-related code is AI-generated, excluding the additional commands.
-- `logo.png` - This is converted from a svg file, which is AI-generated.
+- `uci.hpp/cpp` - Most of the UCI-related code is AI-generated.
 
 AI tools have also been used continuously for debugging and improving code readability.
 
-## External Data Sources
+## Borrowed Data Sources
 
 The following files were from external sources:
 
 - `bench.csv`: Directly from Ethereal's benchmarking data
 - `attack.hpp` magics: Copied from Ethereal's attack.hpp
+- `types.hpp` PRNG: Stockfish's xorshift implementation
