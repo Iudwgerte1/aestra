@@ -39,7 +39,7 @@ static void checkLimit(SearchState& ss) {
     if (ss.limits.nodes && ss.nodes >= (uint64_t)ss.limits.nodes)
         ss.stop = true;
     else if (ss.timeLimit) {
-        if (elapsedMs(ss) >= ss.timeLimit)
+        if ((int)elapsedMs(ss) >= ss.timeLimit)
             ss.stop = true;
     }
 }
@@ -304,7 +304,7 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     Move prevBest = MOVE_NONE;
     for (int depth = 1; depth <= maxDepth && !ss.stop; ++depth) {
         if (depth > 1 && ss.softTime) {
-            uint64_t elapsed = elapsedMs(ss);
+            int elapsed = (int)elapsedMs(ss);
             if (elapsed >= ss.timeLimit) break;
             if (elapsed > ss.softTime && stable) break;
         }
