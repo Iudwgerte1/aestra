@@ -305,6 +305,12 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     bool stable = true;
     Move prevBest = MOVE_NONE;
     for (int depth = 1; depth <= maxDepth && !ss.stop; ++depth) {
+        if (depth > 1 && ss.softTime) {
+            uint64_t elapsed = elapsedMs(ss);
+            if (elapsed >= ss.timeLimit) break;
+            if (elapsed > ss.softTime && stable) break;
+        }
+
         Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 
         if (depth >= 5 && isValid(bestScore) && std::abs(bestScore) < VALUE_MATE) {
@@ -316,7 +322,9 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
         Value score = negamax(ss, board, alpha, beta, depth, 0);
         if (ss.stop) break;
 
+        bool reSearched = false;
         while ((score <= alpha || score >= beta) && std::abs(score) < VALUE_MATE) {
+            reSearched = true;
             if (score <= alpha)
                 alpha = -VALUE_INFINITE;
             else if (score >= beta)
@@ -326,6 +334,9 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
         }
         if (ss.stop) break;
 
+        stable = !reSearched && (ss.pvTable[0][0] == prevBest);
+        prevBest = ss.pvTable[0][0];
+
         bestScore = score;
         result.bestMove = ss.pvTable[0][0];
         result.score = score;
@@ -334,6 +345,8 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
         result.nodes = ss.nodes;
 
         report(depth, score);
+
+        if (ss.softTime && std::abs(score) >= VALUE_MATE - MAX_PLY) break;
     }
 
     return result;

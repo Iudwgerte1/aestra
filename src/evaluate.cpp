@@ -26,17 +26,17 @@
 constexpr Score BISHOP_PAIR = S(16, 74);
 constexpr Score PASSED_PAWNS[8] = {SCORE_ZERO, S(-9, 18),  S(-8, 25), S(-4, 47),
                                    S(20, 68),  S(33, 123), S(75, 51), SCORE_ZERO};
-constexpr Score BISHOP_MOBILITY[14] = {S(-20, -10), S(-14, -79), S(-32, -87), S(-29, -49), S(-22, -29),
+constexpr Score BISHOP_MOBILITY[14] = {S(-50, -150), S(-40, -120), S(-32, -87), S(-29, -49), S(-22, -29),
                                        S(-20, -15), S(-12, 4),   S(-5, 15),   S(-2, 26),   S(-1, 33),
                                        S(1, 37),    S(6, 33),    S(7, 29),    S(48, 17)};
-constexpr Score ROOK_MOBILITY[15] = {S(-25, -12), S(-12, -5),  S(-24, -66), S(-18, -44), S(-16, -23),
+constexpr Score ROOK_MOBILITY[15] = {S(-40, -110), S(-30, -88),  S(-24, -66), S(-18, -44), S(-16, -23),
                                      S(-13, -18), S(-12, -10), S(-11, -4),  S(-8, 0),    S(-5, 4),
                                      S(-2, 9),    S(2, 11),    S(4, 13),    S(9, 12),    S(24, 0)};
-constexpr Score QUEEN_MOBILITY[28] = {S(-30, -15),  S(-15, -6),  S(-6, 0),    S(-49, -17), S(-40, -183), S(-21, -169),
-                                      S(-15, -137), S(-14, -91), S(-13, -58), S(-12, -39), S(-11, -23),  S(-10, -10),
-                                      S(-7, 0),     S(-5, 8),    S(-2, 14),   S(1, 21),    S(3, 27),     S(6, 30),
-                                      S(6, 35),     S(8, 36),    S(7, 42),    S(9, 40),    S(7, 47),     S(12, 38),
-                                      S(11, 39),    S(20, 30),   S(47, 4),    S(125, -25)};
+constexpr Score QUEEN_MOBILITY[28] = {
+    S(-120, -260), S(-100, -240), S(-80, -220), S(-60, -200), S(-40, -183), S(-21, -169), S(-15, -137),
+    S(-14, -91),   S(-13, -58),   S(-12, -39),  S(-11, -23),  S(-10, -10),  S(-7, 0),     S(-5, 8),
+    S(-2, 14),     S(1, 21),      S(3, 27),     S(6, 30),     S(6, 35),     S(8, 36),     S(7, 42),
+    S(9, 40),      S(7, 47),      S(12, 38),    S(11, 39),    S(20, 30),    S(47, 4),     S(125, -25)};
 constexpr Score PAWN_DOUBLED = S(-25, -18);
 constexpr Score PAWN_ISOLATED = S(-6, -19);
 constexpr Score CONNECTED_PAWN[SQUARE_NB] = {
@@ -105,8 +105,10 @@ Score evalRooks(const Board& b, Color c) {
 
         Bitboard ourPawns = b.pieces(c, PAWN) & FilesBB[fileOf(s)];
         Bitboard enemyPawns = b.pieces(~c, PAWN) & FilesBB[fileOf(s)];
-        if (!ourPawns && !enemyPawns) rookScore += ROOK_OPEN_FILE;
-        else if (!ourPawns && enemyPawns) rookScore += ROOK_SEMI_OPEN_FILE;
+        if (!ourPawns && !enemyPawns)
+            rookScore += ROOK_OPEN_FILE;
+        else if (!ourPawns && enemyPawns)
+            rookScore += ROOK_SEMI_OPEN_FILE;
 
         if (rankOf(s) == (c == WHITE ? RANK_7 : RANK_2)) rookScore += ROOK_SEVENTH;
     }
