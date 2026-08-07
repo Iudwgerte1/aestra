@@ -88,6 +88,8 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     bool inCheck = board.kingAttackers();
     Value eval = evaluate(board);
 
+    if (board.isDraw(ply)) return VALUE_DRAW;
+
     if (!inCheck) {
         if (eval >= beta) return eval;
         if (eval > alpha) alpha = eval;
@@ -98,7 +100,7 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
         genLegalMoves(board, moves);
         if (moves.empty()) return matedIn(ply);
     } else
-        genNoisyMoves(board, moves);
+        genLegalMoves(board, moves, true);
 
     for (int i = 0; i < moves.size(); ++i) ss.moveScores[i] = scoreMove(ss, board, moves[i], MOVE_NONE, ply);
 
@@ -107,10 +109,6 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
 
         StateInfo newSi;
         board.doMove(m, newSi);
-        if (board.checkers(~board.turn())) {
-            board.undoMove(m);
-            continue;
-        }
 
         Value score = -quiescence(ss, board, -beta, -alpha, ply + 1);
         board.undoMove(m);

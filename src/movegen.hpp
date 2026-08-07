@@ -24,6 +24,6 @@
 
 void genQuietMoves(const Board& board, MoveList& moves);
 void genNoisyMoves(const Board& board, MoveList& moves);
-void genLegalMoves(const Board& board, MoveList& moves, bool quiet = false);
+void genLegalMoves(const Board& board, MoveList& moves, bool noisy = false);
 
 #endif  // MOVEGEN_HPP
