@@ -19,26 +19,32 @@
 #ifndef TT_HPP
 #define TT_HPP
 
+#include <atomic>
 #include <memory>
 
 #include "types.hpp"
 
 struct TTEntry {
-    Move move() const { return (Move)move16; }
-    Value value() const { return (Value)value16; }
-    Depth depth() const { return (Depth)depth8; }
-    Bound bound() const { return (Bound)(genBound8 & 0x3); }
+    std::atomic<uint64_t> data;
+
+    uint64_t load() const { return data.load(std::memory_order_relaxed); }
+    void store(uint64_t v) { data.store(v, std::memory_order_relaxed); }
+
     void save(Key k, Value v, Bound b, Depth d, Move m);
-
-private:
-    friend class TTable;
-
-    uint16_t key16;
-    uint16_t move16;
-    int16_t value16;
-    uint8_t genBound8;
-    uint8_t depth8;
 };
+
+static inline Move entryMove(uint64_t e) { return (Move)((e >> 16) & 0xFFFF); }
+static inline Value entryValue(uint64_t e) { return (Value)((e >> 32) & 0xFFFF); }
+static inline Bound entryBound(uint64_t e) { return (Bound)((e >> 48) & 0x3); }
+static inline Depth entryDepth(uint64_t e) { return (Depth)((e >> 56) & 0xFF); }
+
+inline Value valueToTT(Value v, int ply) {
+    return v >= mateIn(MAX_PLY) ? Value(int(v) + ply) : v <= matedIn(MAX_PLY) ? Value(int(v) - ply) : v;
+}
+
+inline Value valueFromTT(Value v, int ply) {
+    return v >= mateIn(MAX_PLY) ? Value(int(v) - ply) : v <= matedIn(MAX_PLY) ? Value(int(v) + ply) : v;
+}
 
 struct TTBucket {
     TTEntry entries[4];
@@ -54,7 +60,7 @@ public:
     void setSize(size_t mb);
 
     void newSearch() { generation8 += 4; }
-    TTEntry* probe(Key k, bool& found) const;
+    TTEntry* probe(Key k, uint64_t& entry, bool& found) const;
 
     TTEntry* getFirstEntry(Key k) const { return &buckets[mulHi64(k, bucketsSize)].entries[0]; }
 

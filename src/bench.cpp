@@ -16,13 +16,15 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// bench: the second adapter at the engine seam — set position, search at a
+// fixed depth, collect results. No UCI strings involved.
+
 #include "bench.hpp"
 
 #include <chrono>
+#include <iostream>
 
-#include "board.hpp"
-#include "search.hpp"
-#include "thread.hpp"
+#include "engine.hpp"
 #include "tt.hpp"
 
 void runBench(int argc, char* argv[]) {
@@ -30,9 +32,7 @@ void runBench(int argc, char* argv[]) {
 #include "bench.csv"
         ""};
 
-    Board board;
-    MainThread mThread;
-    Limits limits;
+    Engine engine;
 
     Value scores[256];
     double times[256];
@@ -46,27 +46,26 @@ void runBench(int argc, char* argv[]) {
     int nthreads = argc > 3 ? atoi(argv[3]) : 1;
     int mbhash = argc > 4 ? atoi(argv[4]) : 16;
 
-    TT.setSize(mbhash);
-    mThread.setThreads(nthreads);
+    engine.setOption("Hash", std::to_string(mbhash));
+    engine.setOption("Threads", std::to_string(nthreads));
 
+    Limits limits;
     limits.depth = depth;
 
-    mThread.limits = limits;
-    
-    auto states = StateListPtr(new std::deque<StateInfo>(1));
+    SearchResult lastResult;
 
     for (int i = 0; strcmp(Benchmarks[i], ""); ++i) {
         auto startTime = std::chrono::steady_clock::now();
 
-        board.setPos(Benchmarks[i], &states->back());
-        mThread.startSearching(board);
+        engine.setPosition(Benchmarks[i], {});
+        engine.go(limits, {}, [&](const SearchResult& r) { lastResult = r; });
+        engine.waitForSearchFinished();
 
-        mThread.waitForSearchFinished();
-
-        times[i] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime).count();
-        nodes[i] = mThread.result.nodes;
-        bestMoves[i] = mThread.result.bestMove;
-        scores[i] = mThread.result.score;
+        times[i] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime)
+                       .count();
+        nodes[i] = lastResult.nodes;
+        bestMoves[i] = lastResult.bestMove;
+        scores[i] = lastResult.score;
 
         totalNodes += nodes[i];
         totalTime += times[i];

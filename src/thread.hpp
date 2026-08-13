@@ -34,7 +34,8 @@ public:
     explicit Thread(size_t idx = 0);
     virtual ~Thread();
 
-    void startSearching(Board& board);
+    void startSearching(const std::string& fen, StateInfo* rootSi, const std::function<void(int, Value)>& report,
+                        const std::function<void(const SearchResult&)>& done);
     void stopSearching();
     void waitForSearchFinished();
 
@@ -43,7 +44,6 @@ public:
 
 protected:
     virtual void search();
-    virtual void report(int, Value) {}
 
     SearchState ss;
     Board* rootBoard = nullptr;
@@ -52,24 +52,27 @@ private:
     std::thread stdThread;
     Board ownBoard;
     size_t threadIdx = 0;
+    std::function<void(int, Value)> reportCallback;
+    std::function<void(const SearchResult&)> doneCallback;
 };
 
 class MainThread : public Thread {
 public:
     MainThread() : Thread(0) {}
 
-    void startSearching(Board& board);
+    void startSearching(Board& board, const std::function<void(int, Value)>& report,
+                        const std::function<void(const SearchResult&)>& done);
     void stopSearching();
     void waitForSearchFinished();
 
     void setThreads(int n);
     int threadCount() const { return 1 + (int)helpers.size(); }
 
-    void search() override;
-    void report(int depth, Value score) override;
+    const SearchState& state() const { return ss; }
 
 private:
     std::vector<std::unique_ptr<Thread>> helpers;
+    StateListPtr threadStates;
 };
 
 #endif  // THREAD_HPP

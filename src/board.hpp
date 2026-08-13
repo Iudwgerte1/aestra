@@ -36,6 +36,8 @@ struct StateInfo {
     int pliesFromNull;
     Square epSquare;
 
+    Bitboard pinned[COLOR_NB];
+
     Key key;
     Bitboard kingAttackers;
     StateInfo* prev;
@@ -76,9 +78,6 @@ public:
     void doNullMove(StateInfo& newSi);
     void undoNullMove();
 
-    std::string move2str(Move m) const;
-    Move str2move(const std::string& s) const;
-
     Key key() const;
 
     Color turn() const;
@@ -95,13 +94,14 @@ public:
 
     Bitboard kingAttackers() const;
 
+    Bitboard pinned(Color c) const;
+
     void putPiece(Piece p, Square s);
     void removePiece(Square s);
 
-    uint64_t perft(int ply, bool quiet = true);
-
 private:
     void setState();
+    Bitboard pinnedOf(Color c) const;
 
     std::array<Piece, SQUARE_NB> board;
     std::array<Bitboard, PIECE_TYPE_NB> typeBB;
@@ -115,6 +115,8 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& b);
+
+std::string move2str(Move m);
 
 inline void Board::putPiece(Piece p, Square s) {
     board[s] = p;
@@ -187,5 +189,7 @@ inline Score Board::psqtScore() const { return psqt; }
 inline StateInfo* Board::state() const { return st; }
 
 inline Bitboard Board::kingAttackers() const { return st->kingAttackers; }
+
+inline Bitboard Board::pinned(Color c) const { return st->pinned[c]; }
 
 #endif  // BOARD_HPP

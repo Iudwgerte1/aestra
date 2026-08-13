@@ -33,28 +33,14 @@ static constexpr int pieceValues[PIECE_TYPE_NB] = {0, 100, 300, 320, 500, 1000, 
 
 static Value futilityMargin(Depth d) { return Value(150 * d); }
 
-static uint64_t elapsedMs(const SearchState& ss) {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ss.startTime)
-        .count();
-}
-
 static void checkLimit(SearchState& ss) {
     if (ss.limits.nodes && ss.nodes >= (uint64_t)ss.limits.nodes)
         ss.stop = true;
-    else if (ss.timeLimit) {
-        if ((int)elapsedMs(ss) >= ss.timeLimit) ss.stop = true;
-    }
+    else if (ss.tm.hardLimitReached())
+        ss.stop = true;
 }
 
-static inline Value valueToTT(Value v, int ply) {
-    return v >= mateIn(MAX_PLY) ? Value(int(v) + ply) : v <= matedIn(MAX_PLY) ? Value(int(v) - ply) : v;
-}
-
-static inline Value valueFromTT(Value v, int ply) {
-    return v >= mateIn(MAX_PLY) ? Value(int(v) - ply) : v <= matedIn(MAX_PLY) ? Value(int(v) + ply) : v;
-}
-
-static int scoreMove(SearchState& ss, Board& board, Move m, Move ttMove, int ply) {
+static int scoreMove(Stack* stack, Board& board, Move m, Move ttMove) {
     if (m == ttMove) return 5000000;
 
     Square to = toSq(m);
@@ -65,33 +51,37 @@ static int scoreMove(SearchState& ss, Board& board, Move m, Move ttMove, int ply
     if (board.pieceOn(to) != NO_PIECE)
         return 1000000 + pieceValues[typeOf(board.pieceOn(to))] * 16 - pieceValues[typeOf(board.pieceOn(fromSq(m)))];
 
-    if (m == ss.killers[ply][0]) return 900000;
-    if (m == ss.killers[ply][1]) return 800000;
-    return ss.history[board.turn()][fromSq(m)][to];
+    if (m == stack->killers[0]) return 900000;
+    if (m == stack->killers[1]) return 800000;
+    return stack->ss->history[board.turn()][fromSq(m)][to];
 }
 
-static Move pickNext(SearchState& ss, MoveList& moves, int idx) {
+static Move pickNext(Stack* stack, MoveList& moves, int idx) {
     int best = idx;
     for (int i = idx + 1; i < moves.size(); ++i)
-        if (ss.moveScores[i] > ss.moveScores[best]) best = i;
+        if (stack->moveScores[i] > stack->moveScores[best]) best = i;
 
     std::swap(moves.moves[idx], moves.moves[best]);
-    std::swap(ss.moveScores[idx], ss.moveScores[best]);
+    std::swap(stack->moveScores[idx], stack->moveScores[best]);
     return moves.moves[idx];
 }
 
-static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, int ply) {
-    ++ss.nodes;
-    if ((ss.nodes & 1023) == 0) checkLimit(ss);
-    if (ss.stop) return VALUE_ZERO;
+static Value qsearch(Stack* stack, Board& board, Value alpha, Value beta) {
+    ++stack->ss->nodes;
+    if ((stack->ss->nodes & 1023) == 0) checkLimit(*stack->ss);
+    if (stack->ss->stop) return VALUE_ZERO;
 
-    if (ply >= MAX_PLY) return evaluate(board);
+    if (stack->ply >= MAX_PLY) return evaluate(board);
+
+    // the frame owns the "deepest ply reached" invariant
+    if (stack->ply > stack->ss->seldepth) stack->ss->seldepth = stack->ply;
+
+    stack->pvLen = stack->ply;
 
     bool inCheck = board.kingAttackers();
-    bool isPV = int(beta) - int(alpha) > 1;
     Value eval = evaluate(board);
 
-    if (board.isDraw(ply)) return VALUE_DRAW;
+    if (board.isDraw(stack->ply)) return VALUE_DRAW;
 
     if (!inCheck) {
         if (eval >= beta) return eval;
@@ -101,21 +91,24 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     MoveList moves;
     if (inCheck) {
         genLegalMoves(board, moves);
-        if (moves.empty()) return matedIn(ply);
+        if (moves.empty()) return matedIn(stack->ply);
     } else
         genLegalMoves(board, moves, false, true);
 
-    for (int i = 0; i < moves.size(); ++i) ss.moveScores[i] = scoreMove(ss, board, moves[i], MOVE_NONE, ply);
+    for (int i = 0; i < moves.size(); ++i) stack->moveScores[i] = scoreMove(stack, board, moves[i], MOVE_NONE);
 
     for (int i = 0; i < moves.size(); ++i) {
-        Move m = pickNext(ss, moves, i);
+        Move m = pickNext(stack, moves, i);
+
+        (stack + 1)->ply = stack->ply + 1;
+        (stack + 1)->skipEarlyPruning = false;
 
         StateInfo newSi;
         board.doMove(m, newSi);
-        Value score = -quiescence(ss, board, -beta, -alpha, ply + 1);
+        Value score = -qsearch(stack + 1, board, -beta, -alpha);
         board.undoMove(m);
 
-        if (ss.stop) return VALUE_ZERO;
+        if (stack->ss->stop) return VALUE_ZERO;
         if (score >= beta) return beta;
         if (score > alpha) alpha = score;
     }
@@ -123,37 +116,42 @@ static Value quiescence(SearchState& ss, Board& board, Value alpha, Value beta, 
     return alpha;
 }
 
-static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int depth, int ply, bool canDoNull = true) {
-    ++ss.nodes;
-    if ((ss.nodes & 1023) == 0) checkLimit(ss);
-    if (ss.stop) return VALUE_ZERO;
+static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int depth) {
+    ++stack->ss->nodes;
+    if ((stack->ss->nodes & 1023) == 0) checkLimit(*stack->ss);
+    if (stack->ss->stop) return VALUE_ZERO;
 
-    if (ply >= MAX_PLY) return evaluate(board);
-    ss.pvLen[ply] = ply;
+    if (stack->ply >= MAX_PLY) return evaluate(board);
+
+    // the frame owns the "deepest ply reached" invariant
+    if (stack->ply > stack->ss->seldepth) stack->ss->seldepth = stack->ply;
+
+    stack->pvLen = stack->ply;
 
     Value eval = VALUE_NONE;
 
     bool inCheck = board.kingAttackers();
     bool isPV = int(beta) - int(alpha) > 1;
-    bool isRoot = isPV && ply == 0;
+    bool isRoot = isPV && stack->ply == 0;
 
-    if (board.isDraw(ply)) return VALUE_DRAW;
+    if (board.isDraw(stack->ply)) return VALUE_DRAW;
 
     if (!isRoot) {
-        alpha = std::max(alpha, matedIn(ply));
-        beta = std::min(beta, mateIn(ply + 1));
+        alpha = std::max(alpha, matedIn(stack->ply));
+        beta = std::min(beta, mateIn(stack->ply + 1));
         if (alpha >= beta) return alpha;
     }
 
-    if (depth <= 0) return quiescence(ss, board, alpha, beta, ply);
+    if (depth <= 0) return qsearch(stack, board, alpha, beta);
 
     bool ttHit = false;
-    TTEntry* tte = TT.probe(board.key(), ttHit);
-    Value ttValue = ttHit ? valueFromTT(tte->value(), ply) : VALUE_NONE;
-    Move ttMove = ttHit ? tte->move() : MOVE_NONE;
+    uint64_t ttEntry = 0;
+    TTEntry* tte = TT.probe(board.key(), ttEntry, ttHit);
+    Value ttValue = ttHit ? valueFromTT(entryValue(ttEntry), stack->ply) : VALUE_NONE;
+    Move ttMove = ttHit ? entryMove(ttEntry) : MOVE_NONE;
 
-    if (!isPV && ttHit && tte->depth() >= depth && ttValue != VALUE_NONE &&
-        ((ttValue >= beta ? (tte->bound() & BOUND_LOWER) : (tte->bound() & BOUND_UPPER)))) {
+    if (!isPV && ttHit && entryDepth(ttEntry) >= depth && ttValue != VALUE_NONE &&
+        ((ttValue >= beta ? (entryBound(ttEntry) & BOUND_LOWER) : (entryBound(ttEntry) & BOUND_UPPER)))) {
         return ttValue;
     }
 
@@ -162,18 +160,20 @@ static Value negamax(SearchState& ss, Board& board, Value alpha, Value beta, int
         goto moves_loop;
     } else if (ttHit) {
         if (ttValue != VALUE_NONE)
-            if (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER))
+            if (entryBound(ttEntry) & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER))
                 eval = ttValue;
     }
 
     if (!isRoot && depth < 7 && eval - futilityMargin(depth) >= beta && eval < VALUE_MATE && popcount(board.pieces()) > 6)
         return eval;
 
-    if (canDoNull && !isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
+    if (!stack->skipEarlyPruning && !isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
 
         StateInfo newSi;
         board.doNullMove(newSi);
-        Value score = -negamax(ss, board, -beta, -beta + 1, depth - 4, ply + 1, false);
+        (stack + 1)->ply = stack->ply + 1;
+        (stack + 1)->skipEarlyPruning = true;
+        Value score = -negamax(stack + 1, board, -beta, -beta + 1, depth - 4);
         board.undoNullMove();
 
         if (score >= beta) return beta;
@@ -183,12 +183,12 @@ moves_loop:
     MoveList moves;
     genLegalMoves(board, moves);
 
-    if (moves.empty()) return inCheck ? matedIn(ply) : VALUE_DRAW;
+    if (moves.empty()) return inCheck ? matedIn(stack->ply) : VALUE_DRAW;
 
-    if (ply == 0 && ss.threadIdx)
-        std::rotate(moves.moves, moves.moves + ss.threadIdx % moves.size(), moves.moves + moves.size());
+    if (stack->ply == 0 && stack->ss->threadIdx)
+        std::rotate(moves.moves, moves.moves + stack->ss->threadIdx % moves.size(), moves.moves + moves.size());
 
-    for (int i = 0; i < moves.size(); ++i) ss.moveScores[i] = scoreMove(ss, board, moves[i], ttMove, ply);
+    for (int i = 0; i < moves.size(); ++i) stack->moveScores[i] = scoreMove(stack, board, moves[i], ttMove);
 
     Value oldAlpha = alpha;
     Move bestMove = MOVE_NONE;
@@ -196,7 +196,10 @@ moves_loop:
     int moveCount = 0;
 
     for (int i = 0; i < moves.size(); ++i) {
-        Move m = pickNext(ss, moves, i);
+        Move m = pickNext(stack, moves, i);
+
+        (stack + 1)->ply = stack->ply + 1;
+        (stack + 1)->skipEarlyPruning = false;
 
         StateInfo newSi;
         board.doMove(m, newSi);
@@ -212,18 +215,18 @@ moves_loop:
             if (depth >= 3 && moveCount >= 4 && !inCheck && !givesCheck && moveType(m) == NORMAL)
                 reduction = 1 + moveCount / 8;
 
-            score = -negamax(ss, board, -alpha - 1, -alpha, newDepth - reduction, ply + 1);
-            if (ss.stop) {
+            score = -negamax(stack + 1, board, -alpha - 1, -alpha, newDepth - reduction);
+            if (stack->ss->stop) {
                 board.undoMove(m);
                 return VALUE_ZERO;
             }
-            if (reduction && score > alpha) score = -negamax(ss, board, -alpha - 1, -alpha, newDepth, ply + 1);
+            if (reduction && score > alpha) score = -negamax(stack + 1, board, -alpha - 1, -alpha, newDepth);
             if (score > alpha && score < beta) doFullSearch = true;
         }
-        if (doFullSearch) score = -negamax(ss, board, -beta, -alpha, newDepth, ply + 1);
+        if (doFullSearch) score = -negamax(stack + 1, board, -beta, -alpha, newDepth);
 
         board.undoMove(m);
-        if (ss.stop) return VALUE_ZERO;
+        if (stack->ss->stop) return VALUE_ZERO;
 
         if (score > bestScore) bestScore = score;
 
@@ -231,18 +234,18 @@ moves_loop:
             alpha = score;
             bestMove = m;
 
-            ss.pvTable[ply][ply] = m;
-            int pvLenChild = ply + 1 < MAX_PLY ? ss.pvLen[ply + 1] : ply + 1;
-            for (int j = ply + 1; j < pvLenChild; ++j) ss.pvTable[ply][j] = ss.pvTable[ply + 1][j];
-            ss.pvLen[ply] = pvLenChild;
+            stack->pv[stack->ply] = m;
+            int pvLenChild = stack->ply + 1 < MAX_PLY ? (stack + 1)->pvLen : stack->ply + 1;
+            for (int j = stack->ply + 1; j < pvLenChild; ++j) stack->pv[j] = (stack + 1)->pv[j];
+            stack->pvLen = pvLenChild;
 
             if (score >= beta) {
                 if (moveType(m) == NORMAL && board.pieceOn(toSq(m)) == NO_PIECE) {
-                    if (ss.killers[ply][0] != m) {
-                        ss.killers[ply][1] = ss.killers[ply][0];
-                        ss.killers[ply][0] = m;
+                    if (stack->killers[0] != m) {
+                        stack->killers[1] = stack->killers[0];
+                        stack->killers[0] = m;
                     }
-                    int& h = ss.history[board.turn()][fromSq(m)][toSq(m)];
+                    int& h = stack->ss->history[board.turn()][fromSq(m)][toSq(m)];
                     h = std::clamp(h + depth * depth, int(-VALUE_MATE), int(VALUE_MATE));
                 }
                 break;
@@ -251,32 +254,15 @@ moves_loop:
     }
 
     if (moveCount == 0) {
-        Value score = inCheck ? matedIn(ply) : VALUE_DRAW;
-        tte->save(board.key(), valueToTT(score, ply), BOUND_EXACT, depth, MOVE_NONE);
+        Value score = inCheck ? matedIn(stack->ply) : VALUE_DRAW;
+        tte->save(board.key(), valueToTT(score, stack->ply), BOUND_EXACT, depth, MOVE_NONE);
         return score;
     }
 
     Bound bound = bestScore >= beta ? BOUND_LOWER : bestScore <= oldAlpha ? BOUND_UPPER : BOUND_EXACT;
-    tte->save(board.key(), valueToTT(bestScore, ply), bound, depth, bestMove);
+    tte->save(board.key(), valueToTT(bestScore, stack->ply), bound, depth, bestMove);
 
     return bestScore;
-}
-
-void printInfo(const SearchState& ss, const Board& board, int depth, Value score) {
-    uint64_t time = elapsedMs(ss);
-    uint64_t nps = time ? ss.nodes * 1000 / time : 0;
-
-    std::lock_guard<std::mutex> lock(ioMutex);
-    std::cout << "info depth " << depth << " seldepth " << ss.seldepth << " score ";
-    if (std::abs(score) >= VALUE_MATE - MAX_PLY) {
-        int moves = (VALUE_MATE - std::abs(score) + 1) / 2;
-        std::cout << "mate " << (score > 0 ? moves : -moves);
-    } else {
-        std::cout << "cp " << score;
-    }
-    std::cout << " nodes " << ss.nodes << " nps " << nps << " time " << time << " pv";
-    for (int i = 0; i < ss.pvLen[0]; ++i) std::cout << " " << board.move2str(ss.pvTable[0][i]);
-    std::cout << std::endl;
 }
 
 SearchResult search(SearchState& ss, Board& board, const Limits& limits,
@@ -284,26 +270,14 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     ss.limits = limits;
     ss.nodes = 0;
     ss.seldepth = 0;
-    ss.startTime = std::chrono::steady_clock::now();
-    TT.newSearch();
-    std::fill(&ss.killers[0][0], &ss.killers[0][0] + MAX_PLY * 2, MOVE_NONE);
+    ss.tm.init(limits, board.turn());
     std::memset(ss.history, 0, sizeof(ss.history));
-    ss.pvTable[0][0] = MOVE_NONE;
+    std::memset(ss.stack, 0, sizeof(ss.stack));
+    for (auto& frame : ss.stack) frame.ss = &ss;
+    ss.stack[0].ply = 0;
+    ss.stack[0].skipEarlyPruning = false;
 
     SearchResult result;
-
-    if (limits.movetime > 0) {
-        ss.softTime = limits.movetime;
-        ss.timeLimit = limits.movetime;
-    } else if (limits.wtime || limits.btime) {
-        int timeLeft = board.turn() == WHITE ? limits.wtime : limits.btime;
-        int inc = board.turn() == WHITE ? limits.winc : limits.binc;
-        int moveTime = timeLeft / 20 + inc * 3 / 4;
-        ss.softTime = std::clamp(moveTime, 10, std::max(10, timeLeft / 4));
-        ss.timeLimit = std::min(ss.softTime * 4, std::max(ss.softTime, timeLeft / 4));
-    } else {
-        ss.timeLimit = 0;
-    }
 
     int maxDepth = limits.infinite ? MAX_PLY - 1 : std::min(limits.depth, MAX_PLY - 1);
 
@@ -311,10 +285,10 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     bool stable = true;
     Move prevBest = MOVE_NONE;
     for (int depth = 1; depth <= maxDepth && !ss.stop; ++depth) {
-        if (depth > 1 && ss.softTime) {
-            int elapsed = (int)elapsedMs(ss);
-            if (elapsed >= ss.timeLimit) break;
-            if (elapsed > ss.softTime && stable) break;
+        if (depth > 1 && ss.tm.softMs()) {
+            int elapsed = ss.tm.elapsed();
+            if (elapsed >= ss.tm.hardMs()) break;
+            if (elapsed > ss.tm.softMs() && stable) break;
         }
 
         Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
@@ -325,7 +299,7 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
             beta = std::min(VALUE_INFINITE, bestScore + delta);
         }
 
-        Value score = negamax(ss, board, alpha, beta, depth, 0);
+        Value score = negamax(ss.stack, board, alpha, beta, depth);
         if (ss.stop) break;
 
         bool reSearched = false;
@@ -335,16 +309,16 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
                 alpha = -VALUE_INFINITE;
             else if (score >= beta)
                 beta = VALUE_INFINITE;
-            score = negamax(ss, board, alpha, beta, depth, 0);
+            score = negamax(ss.stack, board, alpha, beta, depth);
             if (ss.stop) break;
         }
         if (ss.stop) break;
 
-        stable = !reSearched && (ss.pvTable[0][0] == prevBest);
-        prevBest = ss.pvTable[0][0];
+        stable = !reSearched && (ss.stack[0].pv[0] == prevBest);
+        prevBest = ss.stack[0].pv[0];
 
         bestScore = score;
-        result.bestMove = ss.pvTable[0][0];
+        result.bestMove = ss.stack[0].pv[0];
         result.score = score;
         result.depth = depth;
         result.seldepth = ss.seldepth;
@@ -352,8 +326,28 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
 
         report(depth, score);
 
-        if (ss.softTime && std::abs(score) >= VALUE_MATE - MAX_PLY) break;
+        if (ss.tm.softMs() && std::abs(score) >= VALUE_MATE - MAX_PLY) break;
     }
 
     return result;
+}
+
+uint64_t perft(Board& board, int depth, bool isRoot) {
+    if (depth == 0) return 1;
+
+    MoveList moves;
+    genLegalMoves(board, moves);
+
+    uint64_t nodes = 0;
+    for (int i = 0; i < moves.size(); ++i) {
+        Move m = moves[i];
+        StateInfo newSi;
+        board.doMove(m, newSi);
+        uint64_t n = perft(board, depth - 1, false);
+        board.undoMove(m);
+        if (isRoot) std::cout << move2str(m) << ": " << n << std::endl;
+        nodes += n;
+    }
+
+    return nodes;
 }

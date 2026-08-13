@@ -19,11 +19,11 @@
 #include "thread.hpp"
 
 #include <algorithm>
-#include <cstring>
 #include <iostream>
 
 #include "board.hpp"
 #include "search.hpp"
+#include "tt.hpp"
 
 Thread::Thread(size_t idx) : threadIdx(idx) {}
 
@@ -32,11 +32,15 @@ Thread::~Thread() {
     waitForSearchFinished();
 }
 
-void Thread::startSearching(Board& b) {
+void Thread::startSearching(const std::string& fen, StateInfo* rootSi, const std::function<void(int, Value)>& report,
+                            const std::function<void(const SearchResult&)>& done) {
     if (stdThread.joinable()) stdThread.join();
     ss.stop = false;
 
-    std::memcpy(&ownBoard, &b, sizeof(Board));
+    reportCallback = report;
+    doneCallback = done;
+
+    ownBoard.setPos(fen, rootSi);
     rootBoard = &ownBoard;
     stdThread = std::thread([this]() { search(); });
 }
@@ -49,15 +53,25 @@ void Thread::waitForSearchFinished() {
 
 void Thread::search() {
     ss.threadIdx = threadIdx;
-    result = ::search(ss, *rootBoard, limits, [this](int depth, Value score) { report(depth, score); });
+    result = ::search(ss, *rootBoard, limits, [this](int depth, Value score) {
+        if (reportCallback) reportCallback(depth, score);
+    });
+    if (doneCallback) doneCallback(result);
 }
 
-void MainThread::startSearching(Board& board) {
+void MainThread::startSearching(Board& board, const std::function<void(int, Value)>& report,
+                                const std::function<void(const SearchResult&)>& done) {
+    TT.newSearch();
+
+    threadStates = StateListPtr(new std::deque<StateInfo>(threadCount()));
+    const std::string fen = board.fen();
+
+    int idx = 0;
     for (auto& h : helpers) {
         h->limits = limits;
-        h->startSearching(board);
+        h->startSearching(fen, &(*threadStates)[++idx], {}, {});
     }
-    Thread::startSearching(board);
+    Thread::startSearching(fen, &(*threadStates)[0], report, done);
 }
 
 void MainThread::stopSearching() {
@@ -71,7 +85,7 @@ void MainThread::waitForSearchFinished() {
 }
 
 void MainThread::setThreads(int n) {
-    n = std::clamp(n, 1, 256);
+    n = std::clamp(n, 1, 16);
     if (n == threadCount()) return;
 
     stopSearching();
@@ -80,13 +94,3 @@ void MainThread::setThreads(int n) {
     helpers.reserve(n - 1);
     for (int i = 1; i < n; ++i) helpers.emplace_back(new Thread(i));
 }
-
-void MainThread::search() {
-    Thread::search();
-
-    std::lock_guard<std::mutex> lock(ioMutex);
-    std::cout << "bestmove " << (result.bestMove != MOVE_NONE ? rootBoard->move2str(result.bestMove) : "0000")
-              << std::endl;
-}
-
-void MainThread::report(int depth, Value score) { printInfo(ss, *rootBoard, depth, score); }

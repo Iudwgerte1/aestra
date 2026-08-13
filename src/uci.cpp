@@ -16,24 +16,25 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// The UCI adapter: command parsing, move notation, and all info/bestmove
+// string formatting. The engine module sits behind this seam.
+
 #include "uci.hpp"
 
-#include <deque>
 #include <iostream>
-#include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
-#include "board.hpp"
+#include "engine.hpp"
 #include "evaluate.hpp"
-#include "thread.hpp"
+#include "movegen.hpp"
+#include "search.hpp"
 #include "tt.hpp"
 
 namespace {
 
-Board board;
-StateListPtr states(new std::deque<StateInfo>(1));
-MainThread mainThread;
+Engine engine;
 
 void printUci() {
     std::cout << "id name Aestra 1.0.0" << std::endl;
@@ -43,73 +44,127 @@ void printUci() {
     std::cout << "uciok" << std::endl;
 }
 
+Move str2move(const Board& b, const std::string& s) {
+    if (s == "0000") return MOVE_NULL;
+    Square from = makeSquare(File(s[0] - 'a'), Rank(s[1] - '1'));
+    Square to = makeSquare(File(s[2] - 'a'), Rank(s[3] - '1'));
+    if (s.size() == 5) {
+        PieceType pt;
+        switch (s[4]) {
+            case 'n':
+                pt = KNIGHT;
+                break;
+            case 'b':
+                pt = BISHOP;
+                break;
+            case 'r':
+                pt = ROOK;
+                break;
+            case 'q':
+                pt = QUEEN;
+                break;
+            default:
+                return MOVE_NONE;
+        }
+        return makeMove(from, to, pt);
+    }
+    MoveList ml;
+    genLegalMoves(b, ml);
+    for (int i = 0; i < ml.size(); ++i) {
+        Move m = ml[i];
+        if (fromSq(m) == from && toSq(m) == to) return m;
+    }
+    return MOVE_NONE;
+}
+
+void printInfo(const SearchState& ss, int depth, Value score) {
+    uint64_t time = ss.tm.elapsed();
+    uint64_t nps = time ? ss.nodes * 1000 / time : 0;
+
+    std::lock_guard<std::mutex> lock(ioMutex);
+    std::cout << "info depth " << depth << " seldepth " << ss.seldepth << " score ";
+    if (std::abs(score) >= VALUE_MATE - MAX_PLY) {
+        int moves = (VALUE_MATE - std::abs(score) + 1) / 2;
+        std::cout << "mate " << (score > 0 ? moves : -moves);
+    } else {
+        std::cout << "cp " << score;
+    }
+    std::cout << " nodes " << ss.nodes << " nps " << nps << " time " << time << " pv";
+    for (int i = 0; i < ss.stack[0].pvLen; ++i) std::cout << " " << move2str(ss.stack[0].pv[i]);
+    std::cout << std::endl;
+}
+
+void printBestmove(const SearchResult& r) {
+    std::lock_guard<std::mutex> lock(ioMutex);
+    std::cout << "bestmove " << (r.bestMove != MOVE_NONE ? move2str(r.bestMove) : "0000") << std::endl;
+}
+
 void setPosition(std::istringstream& iss) {
-    mainThread.waitForSearchFinished();
+    engine.stop();
+    engine.waitForSearchFinished();
 
     std::string token;
+    std::string fen;
     iss >> token;
 
     if (token == "startpos") {
-        states = StateListPtr(new std::deque<StateInfo>(1));
-        board.setPos(STARTPOS, &states->back());
+        fen = STARTPOS;
         iss >> token;
     } else if (token == "fen") {
-        std::string fen;
         while (iss >> token && token != "moves") fen += token + " ";
-        states = StateListPtr(new std::deque<StateInfo>(1));
-        board.setPos(fen, &states->back());
     }
+
+    engine.setPosition(fen, {});
 
     if (token == "moves") {
         while (iss >> token) {
-            Move m = board.str2move(token);
+            Move m = str2move(engine.position(), token);
             if (m == MOVE_NONE) break;
-            states->emplace_back();
-            board.doMove(m, states->back());
+            engine.applyMove(m);
         }
     }
 }
 
 void setGo(std::istringstream& iss) {
     std::string token;
-    mainThread.limits = Limits();
+    Limits limits;
 
     while (iss >> token) {
         if (token == "perft") {
             int depth;
             iss >> depth;
-            board.perft(depth, false);
+            uint64_t nodes = perft(engine.position(), depth);
+            std::cout << "Total nodes: " << nodes << std::endl;
             return;
         }
         if (token == "depth") {
-            iss >> mainThread.limits.depth;
+            iss >> limits.depth;
         } else if (token == "movetime") {
-            iss >> mainThread.limits.movetime;
+            iss >> limits.movetime;
         } else if (token == "nodes") {
-            iss >> mainThread.limits.nodes;
+            iss >> limits.nodes;
         } else if (token == "wtime") {
-            iss >> mainThread.limits.wtime;
+            iss >> limits.wtime;
         } else if (token == "btime") {
-            iss >> mainThread.limits.btime;
+            iss >> limits.btime;
         } else if (token == "winc") {
-            iss >> mainThread.limits.winc;
+            iss >> limits.winc;
         } else if (token == "binc") {
-            iss >> mainThread.limits.binc;
+            iss >> limits.binc;
         } else if (token == "movestogo") {
-            iss >> mainThread.limits.movestogo;
+            iss >> limits.movestogo;
         } else if (token == "infinite") {
-            mainThread.limits.infinite = true;
+            limits.infinite = true;
         }
     }
 
-    mainThread.startSearching(board);
+    engine.go(limits, [](int depth, Value score) { printInfo(engine.state(), depth, score); }, printBestmove);
 }
 
 }  // namespace
 
 void uciLoop() {
-    states = StateListPtr(new std::deque<StateInfo>(1));
-    board.setPos(STARTPOS, &states->back());
+    engine.setPosition(STARTPOS, {});
 
     std::string cmd, token;
 
@@ -125,16 +180,9 @@ void uciLoop() {
             std::string name, value;
             iss >> name;
             iss >> name;
-            if (name == "Hash") {
-                iss >> value;
-                iss >> value;
-                mainThread.waitForSearchFinished();
-                TT.setSize((size_t)std::stoi(value));
-            } else if (name == "Threads") {
-                iss >> value;
-                iss >> value;
-                mainThread.setThreads(std::stoi(value));
-            }
+            iss >> value;
+            iss >> value;
+            engine.setOption(name, value);
         } else if (token == "ucinewgame") {
             TT.clear();
         } else if (token == "position") {
@@ -142,16 +190,15 @@ void uciLoop() {
         } else if (token == "go") {
             setGo(iss);
         } else if (token == "stop") {
-            mainThread.stopSearching();
-            mainThread.waitForSearchFinished();
+            engine.stop();
+            engine.waitForSearchFinished();
         } else if (token == "quit") {
-            mainThread.stopSearching();
-            mainThread.waitForSearchFinished();
+            engine.quit();
             break;
         } else if (token == "board") {
-            std::cout << board << std::endl;
+            std::cout << engine.position() << std::endl;
         } else if (token == "eval") {
-            std::cout << evaluate(board) << std::endl;
+            std::cout << evaluate(engine.position()) << std::endl;
         }
     }
 }

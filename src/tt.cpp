@@ -27,13 +27,17 @@ static_assert(sizeof(TTBucket) == 32, "TTBucket size must be 32 bytes");
 TTable TT;
 
 void TTEntry::save(Key k, Value v, Bound b, Depth d, Move m) {
-    if (m || (uint16_t)k != key16) move16 = (uint16_t)m;
-    if ((uint16_t)k != key16 || d > depth8 || b == BOUND_EXACT) {
-        key16 = (uint16_t)k;
-        value16 = (int16_t)v;
-        genBound8 = (uint8_t)(TT.generation8 | b);
-        depth8 = (uint8_t)d;
-    }
+    const uint64_t e = load();
+    const uint16_t key16 = (uint16_t)k;
+    uint64_t newE = e;
+
+    if (m || key16 != (uint16_t)e) newE = (newE & ~0xFFFF0000ull) | (uint64_t(uint16_t(m)) << 16);
+
+    if (key16 != (uint16_t)e || d > entryDepth(e) || b == BOUND_EXACT)
+        newE = (newE & 0xFFFF0000ull) | key16 | (uint64_t(uint16_t(v)) << 32) |
+               (uint64_t(uint8_t(TT.generation8 | b)) << 48) | (uint64_t(uint8_t(d)) << 56);
+
+    store(newE);
 }
 
 TTable::TTable() { setSize(16); }
@@ -51,18 +55,23 @@ void TTable::setSize(size_t mb) {
     bucketsSize = entries / 4;
 }
 
-TTEntry* TTable::probe(Key k, bool& found) const {
+TTEntry* TTable::probe(Key k, uint64_t& entry, bool& found) const {
     TTEntry* const tte = getFirstEntry(k);
     const uint16_t key16 = (uint16_t)k;
 
-    for (int i = 0; i < 4; ++i)
-        if (!tte[i].key16 || tte[i].key16 == key16) return found = (bool)tte[i].key16, &tte[i];
+    for (int i = 0; i < 4; ++i) {
+        entry = tte[i].load();
+        if (!(uint16_t)entry || (uint16_t)entry == key16) return found = (bool)(uint16_t)entry, &tte[i];
+    }
 
     TTEntry* replace = tte;
-    for (int i = 0; i < 4; ++i)
-        if (replace->depth8 - ((259 + generation8 - replace->genBound8) & 0xFC) >
-            tte[i].depth8 - ((259 + generation8 - tte[i].genBound8) & 0xFC))
-            replace = &tte[i];
+    uint64_t replaceEntry = tte[0].load();
+    for (int i = 0; i < 4; ++i) {
+        uint64_t e = tte[i].load();
+        if (entryDepth(replaceEntry) - ((259 + generation8 - ((replaceEntry >> 48) & 0xFF)) & 0xFC) >
+            entryDepth(e) - ((259 + generation8 - ((e >> 48) & 0xFF)) & 0xFC))
+            replace = &tte[i], replaceEntry = e;
+    }
 
     return found = false, replace;
 }

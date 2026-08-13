@@ -16,18 +16,31 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef MASKS_HPP
-#define MASKS_HPP
+#ifndef TIMEMAN_HPP
+#define TIMEMAN_HPP
+
+#include <chrono>
 
 #include "types.hpp"
 
-void initMasks();
+struct Limits;
 
-int distanceBetween(Square sq1, Square sq2);
-Bitboard bitsBetween(Square sq1, Square sq2);
-Bitboard lineBB(Square sq1, Square sq2);
-Bitboard adjacentFiles(Square sq);
-Bitboard passedPawnMask(Color c, Square sq);
-Bitboard connectedPawnMask(Color c, Square sq);
+using TimePoint = std::chrono::steady_clock::time_point;
 
-#endif  // MASKS_HPP
+class TimeManager {
+public:
+    void init(const Limits& limits, Color us);
+
+    int elapsed() const;
+    bool hardLimitReached() const { return timeLimit && elapsed() >= timeLimit; }
+    bool softLimitReached() const { return softTime && elapsed() > softTime; }
+    int hardMs() const { return timeLimit; }
+    int softMs() const { return softTime; }
+
+private:
+    TimePoint startTime;
+    int softTime = 0;
+    int timeLimit = 0;
+};
+
+#endif  // TIMEMAN_HPP

@@ -20,11 +20,11 @@
 #define SEARCH_HPP
 
 #include <atomic>
-#include <chrono>
 #include <functional>
 #include <mutex>
 
 #include "board.hpp"
+#include "timeman.hpp"
 #include "types.hpp"
 
 extern std::mutex ioMutex;
@@ -45,24 +45,33 @@ struct SearchResult {
     uint64_t nodes = 0;
 };
 
+struct SearchState;
+
+// One frame per ply: owns the per-ply search state and reaches the shared
+// per-thread state through its back pointer.
+struct Stack {
+    Move pv[MAX_PLY];
+    int pvLen;
+    Move killers[2];
+    int moveScores[MAX_MOVES];
+    int ply;
+    bool skipEarlyPruning;
+    SearchState* ss;
+};
+
 struct SearchState {
     Limits limits;
     std::atomic<bool> stop{false};
     uint64_t nodes = 0;
     int seldepth = 0;
-    Move pvTable[MAX_PLY][MAX_PLY];
-    int pvLen[MAX_PLY];
-    Move killers[MAX_PLY][2];
     int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
-    int moveScores[MAX_MOVES];
-    std::chrono::steady_clock::time_point startTime;
-    int timeLimit = 0;
-    int softTime = 0;
+    Stack stack[MAX_PLY + 2];
+    TimeManager tm;
     int threadIdx = 0;
 };
 
 SearchResult search(SearchState& ss, Board& board, const Limits& limits, const std::function<void(int, Value)>& report);
 
-void printInfo(const SearchState& ss, const Board& board, int depth, Value score);
+uint64_t perft(Board& board, int depth, bool isRoot = true);
 
 #endif  // SEARCH_HPP

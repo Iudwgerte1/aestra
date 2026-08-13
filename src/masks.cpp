@@ -23,6 +23,7 @@
 
 int DistanceBetween[SQUARE_NB][SQUARE_NB];
 Bitboard BitsBetween[SQUARE_NB][SQUARE_NB];
+Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard AdjacentFiles[SQUARE_NB];
 Bitboard PassedPawnMask[COLOR_NB][SQUARE_NB];
 Bitboard ConnectedPawnMask[COLOR_NB][SQUARE_NB];
@@ -39,6 +40,27 @@ void initMasks() {
                 BitsBetween[sq1][sq2] = bishopAttacks(sq1, squareBB(sq2)) & bishopAttacks(sq2, squareBB(sq1));
             if (rookAttacks(sq1, 0ull) & sq2)
                 BitsBetween[sq1][sq2] = rookAttacks(sq1, squareBB(sq2)) & rookAttacks(sq2, squareBB(sq1));
+        }
+
+    const int LineDirs[8][2] = {{0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}};
+
+    for (Square sq = SQ_A1; sq <= SQ_H8; ++sq)
+        for (int d = 0; d < 8; ++d) {
+            const int df = LineDirs[d][0], dr = LineDirs[d][1];
+
+            Bitboard fwd = 0;
+            for (int f = int(fileOf(sq)) + df, r = int(rankOf(sq)) + dr; f >= 0 && f <= 7 && r >= 0 && r <= 7;
+                 f += df, r += dr)
+                fwd |= makeSquare(File(f), Rank(r));
+
+            Bitboard bwd = 0;
+            for (int f = int(fileOf(sq)) - df, r = int(rankOf(sq)) - dr; f >= 0 && f <= 7 && r >= 0 && r <= 7;
+                 f -= df, r -= dr)
+                bwd |= makeSquare(File(f), Rank(r));
+
+            const Bitboard line = fwd | bwd;
+            Bitboard copy = fwd;
+            while (copy) LineBB[sq][popLsb(copy)] = line;
         }
 
     for (Square sq = SQ_A1; sq <= SQ_H8; ++sq) {
@@ -64,6 +86,7 @@ void initMasks() {
 
 int distanceBetween(Square sq1, Square sq2) { return DistanceBetween[sq1][sq2]; }
 Bitboard bitsBetween(Square sq1, Square sq2) { return BitsBetween[sq1][sq2]; }
+Bitboard lineBB(Square sq1, Square sq2) { return LineBB[sq1][sq2]; }
 Bitboard adjacentFiles(Square sq) { return AdjacentFiles[sq]; }
 Bitboard passedPawnMask(Color c, Square sq) { return PassedPawnMask[c][sq]; }
 Bitboard connectedPawnMask(Color c, Square sq) { return ConnectedPawnMask[c][sq]; }

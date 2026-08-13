@@ -24,7 +24,7 @@
 #include <string_view>
 
 #include "bitboards.hpp"
-#include "movegen.hpp"
+#include "masks.hpp"
 #include "zobrist.hpp"
 
 constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");
@@ -124,6 +124,9 @@ void Board::setState() {
     if (stm == BLACK) st->key ^= ZobristTurnKey;
 
     st->key ^= ZobristCastlingKeys[st->castlingRights];
+
+    st->pinned[WHITE] = pinnedOf(WHITE);
+    st->pinned[BLACK] = pinnedOf(BLACK);
 
     st->kingAttackers = checkers(stm);
 }
@@ -251,6 +254,8 @@ void Board::doMove(Move m, StateInfo& newSi) {
     st->capturedPiece = captured;
     stm = ~stm;
     st->kingAttackers = checkers(stm);
+    st->pinned[WHITE] = pinnedOf(WHITE);
+    st->pinned[BLACK] = pinnedOf(BLACK);
 }
 
 void Board::undoMove(Move m) {
@@ -353,65 +358,24 @@ bool Board::isInsufficientMaterial() const {
     return false;
 }
 
-std::string Board::move2str(Move m) const {
-    std::string str;
-    str += sq2str(fromSq(m));
-    str += sq2str(toSq(m));
+Bitboard Board::pinnedOf(Color c) const {
+    Bitboard pinned = 0;
+    Square kSq = lsb(pieces(c, KING));
+    Bitboard occWithoutUs = pieces() ^ pieces(c);
+    Bitboard snipers = (rookAttacks(kSq, occWithoutUs) & pieces(~c, ROOK, QUEEN)) |
+                       (bishopAttacks(kSq, occWithoutUs) & pieces(~c, BISHOP, QUEEN));
+
+    while (snipers) {
+        Square sniper = popLsb(snipers);
+        Bitboard between = bitsBetween(kSq, sniper) & pieces();
+        if (between && !several(between) && (between & pieces(c))) pinned |= between;
+    }
+
+    return pinned;
+}
+
+std::string move2str(Move m) {
+    std::string str = sq2str(fromSq(m)) + sq2str(toSq(m));
     if (moveType(m) == PROMOTION) str += (" pnbrqk")[promoPiece(m)];
     return str;
-}
-
-Move Board::str2move(const std::string& s) const {
-    if (s == "0000") return MOVE_NULL;
-    Square from = makeSquare(File(s[0] - 'a'), Rank(s[1] - '1'));
-    Square to = makeSquare(File(s[2] - 'a'), Rank(s[3] - '1'));
-    if (s.size() == 5) {
-        PieceType pt;
-        switch (s[4]) {
-            case 'n':
-                pt = KNIGHT;
-                break;
-            case 'b':
-                pt = BISHOP;
-                break;
-            case 'r':
-                pt = ROOK;
-                break;
-            case 'q':
-                pt = QUEEN;
-                break;
-            default:
-                return MOVE_NONE;
-        }
-        return makeMove(from, to, pt);
-    }
-    MoveList ml;
-    genLegalMoves(*this, ml);
-    for (int i = 0; i < ml.size(); ++i) {
-        Move m = ml[i];
-        if (fromSq(m) == from && toSq(m) == to) return m;
-    }
-    return MOVE_NONE;
-}
-
-uint64_t Board::perft(int ply, bool quiet) {
-    if (ply == 0) return 1;
-    MoveList ml;
-    genLegalMoves(*this, ml);
-
-    uint64_t nodes = 0;
-    for (int i = 0; i < ml.size(); ++i) {
-        Move m = ml[i];
-        uint64_t n = 0;
-        StateInfo tempSi;
-        doMove(m, tempSi);
-        n = perft(ply - 1);
-        if (!quiet) std::cout << move2str(m) << ": " << n << std::endl;
-        nodes += n;
-        undoMove(m);
-    }
-
-    if (!quiet) std::cout << "Total nodes: " << nodes << std::endl;
-
-    return nodes;
 }

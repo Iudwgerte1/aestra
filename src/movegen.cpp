@@ -24,160 +24,239 @@
 #include "masks.hpp"
 #include "types.hpp"
 
-typedef Bitboard (*JumperFunc)(Square sq);
-typedef Bitboard (*SliderFunc)(Square sq, Bitboard occ);
-
-void buildEnpassantMoves(MoveList& moves, Bitboard attacks, Square epSq) {
-    while (attacks) moves.add(makeMove(popLsb(attacks), epSq, EN_PASSANT));
+static inline Bitboard pinMask(Square kSq, Bitboard pinned, Square from) {
+    return pinned & from ? lineBB(kSq, from) : ~Bitboard(0);
 }
 
-void buildPawnMoves(MoveList& moves, Bitboard attacks, Direction delta) {
+static bool attackedBy(const Board& board, Square s, Color them, Square kSq) {
+    Bitboard occ = board.pieces() ^ squareBB(kSq);
+    return (pawnAttacks(~them, s) & board.pieces(them, PAWN)) || (knightAttacks(s) & board.pieces(them, KNIGHT)) ||
+           (kingAttacks(s) & board.pieces(them, KING)) ||
+           (bishopAttacks(s, occ) & (board.pieces(them, BISHOP) | board.pieces(them, QUEEN))) ||
+           (rookAttacks(s, occ) & (board.pieces(them, ROOK) | board.pieces(them, QUEEN)));
+}
+
+static void buildKingMoves(const Board& board, MoveList& moves, Square kSq, Color them, Bitboard targets) {
+    Bitboard attacks = kingAttacks(kSq) & targets;
+
     while (attacks) {
-        Square sq = popLsb(attacks);
-        moves.add(makeMove(sq + delta, sq));
+        Square to = popLsb(attacks);
+        if (!attackedBy(board, to, them, kSq)) moves.add(makeMove(kSq, to));
     }
 }
 
-void buildPawnPromotions(MoveList& moves, Bitboard attacks, Direction delta) {
-    while (attacks) {
-        Square sq = popLsb(attacks);
-        moves.add(makeMove(sq + delta, sq, KNIGHT));
-        moves.add(makeMove(sq + delta, sq, BISHOP));
-        moves.add(makeMove(sq + delta, sq, ROOK));
-        moves.add(makeMove(sq + delta, sq, QUEEN));
-    }
-}
-
-void buildNormalMoves(MoveList& moves, Bitboard attacks, Square sq) {
-    while (attacks) moves.add(makeMove(sq, popLsb(attacks)));
-}
-
-void buildJumperMoves(JumperFunc func, MoveList& moves, Bitboard pieces, Bitboard targets) {
-    while (pieces) {
-        Square from = popLsb(pieces);
-        Bitboard jumps = func(from) & targets;
-        while (jumps) {
-            Square to = popLsb(jumps);
-            moves.add(makeMove(from, to));
-        }
-    }
-}
-
-void buildSliderMoves(SliderFunc func, MoveList& moves, Bitboard pieces, Bitboard occ, Bitboard targets) {
-    while (pieces) {
-        Square from = popLsb(pieces);
-        Bitboard sliders = func(from, occ) & targets;
-        while (sliders) {
-            Square to = popLsb(sliders);
-            moves.add(makeMove(from, to));
-        }
-    }
+static void buildPawnPromotions(MoveList& moves, Square from, Square to) {
+    moves.add(makeMove(from, to, KNIGHT));
+    moves.add(makeMove(from, to, BISHOP));
+    moves.add(makeMove(from, to, ROOK));
+    moves.add(makeMove(from, to, QUEEN));
 }
 
 void genQuietMoves(const Board& board, MoveList& moves) {
-    const Direction Forward = board.turn() == WHITE ? SOUTH : NORTH;
+    const Direction Fwd = board.turn() == WHITE ? NORTH : SOUTH;
     const Bitboard Rank3Relative = board.turn() == WHITE ? RANK_3BB : RANK_6BB;
 
-    Bitboard us = board.pieces(board.turn());
-    Bitboard them = board.pieces(~board.turn());
-    Bitboard occupied = us | them;
+    Color us = board.turn();
+    Color them = ~us;
+    Bitboard usBB = board.pieces(us);
+    Bitboard occupied = board.pieces();
+    Bitboard checkers = board.kingAttackers();
+    Square kSq = lsb(usBB & board.pieces(KING));
+    Bitboard pinned = board.pinned(us);
 
-    Bitboard pawns = us & board.pieces(PAWN);
-    Bitboard knights = us & board.pieces(KNIGHT);
-    Bitboard bishops = us & (board.pieces(BISHOP) | board.pieces(QUEEN));
-    Bitboard rooks = us & (board.pieces(ROOK) | board.pieces(QUEEN));
-    Bitboard kings = us & board.pieces(KING);
+    if (several(checkers)) {
+        buildKingMoves(board, moves, kSq, them, ~occupied);
+        return;
+    }
 
-    if (several(board.kingAttackers())) return buildJumperMoves(&kingAttacks, moves, kings, ~occupied);
+    Bitboard destinations = !checkers ? ~occupied : bitsBetween(kSq, lsb(checkers));
 
-    Bitboard destinations = !board.kingAttackers() ? ~occupied : bitsBetween(lsb(kings), lsb(board.kingAttackers()));
+    Bitboard pawns = usBB & board.pieces(PAWN);
+    Bitboard knights = usBB & board.pieces(KNIGHT);
+    Bitboard bishops = usBB & (board.pieces(BISHOP) | board.pieces(QUEEN));
+    Bitboard rooks = usBB & (board.pieces(ROOK) | board.pieces(QUEEN));
 
-    Bitboard pawnForwardOne = pawnAdvance(pawns, occupied, board.turn()) & ~PROMOTION_RANKS;
-    Bitboard pawnForwardTwo = pawnAdvance(pawnForwardOne & Rank3Relative, occupied, board.turn());
+    Bitboard loop;
 
-    buildPawnMoves(moves, pawnForwardOne & destinations, Forward);
-    buildPawnMoves(moves, pawnForwardTwo & destinations, 2 * Forward);
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        Square to = from + Fwd;
+        if (!(occupied & to) && !(PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (destinations & to))
+            moves.add(makeMove(from, to));
+    }
 
-    buildJumperMoves(&knightAttacks, moves, knights, destinations);
-    buildSliderMoves(&bishopAttacks, moves, bishops, occupied, destinations);
-    buildSliderMoves(&rookAttacks, moves, rooks, occupied, destinations);
-    buildJumperMoves(&kingAttacks, moves, kings, ~occupied);
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        Square one = from + Fwd;
+        Square two = from + 2 * Fwd;
+        if ((Rank3Relative & one) && !(occupied & one) && !(occupied & two) && (pinMask(kSq, pinned, from) & two) &&
+            (destinations & two))
+            moves.add(makeMove(from, two));
+    }
 
-    if (!board.kingAttackers()) {
-        Square kingSq = board.turn() == WHITE ? SQ_E1 : SQ_E8;
-        if (board.canCastle(board.turn() == WHITE ? WHITE_OO : BLACK_OO)) {
+    loop = knights;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = knightAttacks(from) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    loop = bishops;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = bishopAttacks(from, occupied) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    loop = rooks;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = rookAttacks(from, occupied) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    buildKingMoves(board, moves, kSq, them, ~occupied);
+
+    if (!checkers) {
+        Square kingSq = us == WHITE ? SQ_E1 : SQ_E8;
+        if (board.canCastle(us == WHITE ? WHITE_OO : BLACK_OO)) {
             Square kTo = makeSquare(FILE_G, rankOf(kingSq));
             Square fSq = makeSquare(FILE_F, rankOf(kingSq));
-            if (!(occupied & (kTo | fSq)) && !board.attackersTo(fSq, ~board.turn()) &&
-                !board.attackersTo(kTo, ~board.turn()))
+            if (!(occupied & (kTo | fSq)) && !board.attackersTo(fSq, them) && !board.attackersTo(kTo, them))
                 moves.add(makeMove(kingSq, kTo, CASTLING));
         }
-        if (board.canCastle(board.turn() == WHITE ? WHITE_OOO : BLACK_OOO)) {
+        if (board.canCastle(us == WHITE ? WHITE_OOO : BLACK_OOO)) {
             Square kTo = makeSquare(FILE_C, rankOf(kingSq));
             Square bSq = makeSquare(FILE_B, rankOf(kingSq));
             Square dSq = makeSquare(FILE_D, rankOf(kingSq));
-            if (!(occupied & (kTo | dSq | bSq)) && !board.attackersTo(dSq, ~board.turn()) &&
-                !board.attackersTo(kTo, ~board.turn()))
+            if (!(occupied & (kTo | dSq | bSq)) && !board.attackersTo(dSq, them) && !board.attackersTo(kTo, them))
                 moves.add(makeMove(kingSq, kTo, CASTLING));
         }
     }
 }
 
 void genNoisyMoves(const Board& board, MoveList& moves) {
-    const Direction Left = board.turn() == WHITE ? SOUTH_EAST : NORTH_WEST;
-    const Direction Right = board.turn() == WHITE ? SOUTH_WEST : NORTH_EAST;
-    const Direction Forward = board.turn() == WHITE ? SOUTH : NORTH;
+    const Direction Fwd = board.turn() == WHITE ? NORTH : SOUTH;
+    const Direction LeftAtt = board.turn() == WHITE ? NORTH_WEST : SOUTH_EAST;
+    const Direction RightAtt = board.turn() == WHITE ? NORTH_EAST : SOUTH_WEST;
 
-    Bitboard us = board.pieces(board.turn());
-    Bitboard them = board.pieces(~board.turn());
-    Bitboard occupied = us | them;
+    Color us = board.turn();
+    Color them = ~us;
+    Bitboard usBB = board.pieces(us);
+    Bitboard themBB = board.pieces(them);
+    Bitboard occupied = usBB | themBB;
+    Bitboard checkers = board.kingAttackers();
+    Square kSq = lsb(usBB & board.pieces(KING));
+    Bitboard pinned = board.pinned(us);
 
-    Bitboard pawns = us & board.pieces(PAWN);
-    Bitboard knights = us & board.pieces(KNIGHT);
-    Bitboard bishops = us & (board.pieces(BISHOP) | board.pieces(QUEEN));
-    Bitboard rooks = us & (board.pieces(ROOK) | board.pieces(QUEEN));
-    Bitboard kings = us & board.pieces(KING);
+    if (several(checkers)) {
+        buildKingMoves(board, moves, kSq, them, themBB);
+        return;
+    }
 
-    if (several(board.kingAttackers())) return buildJumperMoves(&kingAttacks, moves, kings, them);
+    Bitboard destinations = checkers ? checkers : themBB;
+    Bitboard quietDestinations = !checkers ? ~occupied : bitsBetween(kSq, lsb(checkers));
 
-    Bitboard destinations = board.kingAttackers() ? board.kingAttackers() : them;
+    Bitboard pawns = usBB & board.pieces(PAWN);
+    Bitboard knights = usBB & board.pieces(KNIGHT);
+    Bitboard bishops = usBB & (board.pieces(BISHOP) | board.pieces(QUEEN));
+    Bitboard rooks = usBB & (board.pieces(ROOK) | board.pieces(QUEEN));
 
-    Bitboard pawnEnpassant = pawnEnPassantAttacks(pawns, board.epSquare(), board.turn());
-    Bitboard pawnLeft = pawnLeftAttacks(pawns, them, board.turn());
-    Bitboard pawnRight = pawnRightAttacks(pawns, them, board.turn());
-    Bitboard pawnPromoForward = pawnAdvance(pawns, occupied, board.turn()) & PROMOTION_RANKS;
-    Bitboard pawnPromoLeft = pawnLeft & PROMOTION_RANKS;
-    Bitboard pawnPromoRight = pawnRight & PROMOTION_RANKS;
-    pawnLeft &= ~PROMOTION_RANKS;
-    pawnRight &= ~PROMOTION_RANKS;
+    Square epSq = board.epSquare();
+    Bitboard enPassantPawns = epSq != SQ_NONE ? pawnAttacks(~us, epSq) & pawns : Bitboard(0);
 
-    buildEnpassantMoves(moves, pawnEnpassant, board.epSquare());
-    buildPawnMoves(moves, pawnLeft & destinations, Left);
-    buildPawnMoves(moves, pawnRight & destinations, Right);
-    buildPawnPromotions(moves, pawnPromoForward, Forward);
-    buildPawnPromotions(moves, pawnPromoLeft, Left);
-    buildPawnPromotions(moves, pawnPromoRight, Right);
+    Bitboard loop = enPassantPawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        Square captured = makeSquare(fileOf(epSq), rankOf(from));
 
-    buildJumperMoves(&knightAttacks, moves, knights, them);
-    buildSliderMoves(&bishopAttacks, moves, bishops, occupied, them);
-    buildSliderMoves(&rookAttacks, moves, rooks, occupied, them);
-    buildJumperMoves(&kingAttacks, moves, kings, them);
+        if (checkers && !(checkers == squareBB(captured))) continue;
+        if (!(pinMask(kSq, pinned, from) & epSq)) continue;
+
+        Bitboard finalOcc = (occupied ^ squareBB(from) ^ squareBB(captured)) | squareBB(epSq);
+        Bitboard themRooksQueens = themBB & (board.pieces(ROOK) | board.pieces(QUEEN));
+        Bitboard themBishopsQueens = themBB & (board.pieces(BISHOP) | board.pieces(QUEEN));
+        if ((rookAttacks(kSq, finalOcc) & themRooksQueens) || (bishopAttacks(kSq, finalOcc) & themBishopsQueens))
+            continue;
+
+        moves.add(makeMove(from, epSq, EN_PASSANT));
+    }
+
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        if ((us == WHITE && fileOf(from) > FILE_A) || (us == BLACK && fileOf(from) < FILE_H)) {
+            Square to = from + LeftAtt;
+            if ((themBB & to) && !(PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (destinations & to))
+                moves.add(makeMove(from, to));
+        }
+    }
+
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        if ((us == WHITE && fileOf(from) < FILE_H) || (us == BLACK && fileOf(from) > FILE_A)) {
+            Square to = from + RightAtt;
+            if ((themBB & to) && !(PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (destinations & to))
+                moves.add(makeMove(from, to));
+        }
+    }
+
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        Square to = from + Fwd;
+        if (!(occupied & to) && (PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (quietDestinations & to))
+            buildPawnPromotions(moves, from, to);
+    }
+
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        if ((us == WHITE && fileOf(from) > FILE_A) || (us == BLACK && fileOf(from) < FILE_H)) {
+            Square to = from + LeftAtt;
+            if ((themBB & to) && (PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (destinations & to))
+                buildPawnPromotions(moves, from, to);
+        }
+    }
+
+    loop = pawns;
+    while (loop) {
+        Square from = popLsb(loop);
+        if ((us == WHITE && fileOf(from) < FILE_H) || (us == BLACK && fileOf(from) > FILE_A)) {
+            Square to = from + RightAtt;
+            if ((themBB & to) && (PROMOTION_RANKS & to) && (pinMask(kSq, pinned, from) & to) && (destinations & to))
+                buildPawnPromotions(moves, from, to);
+        }
+    }
+
+    loop = knights;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = knightAttacks(from) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    loop = bishops;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = bishopAttacks(from, occupied) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    loop = rooks;
+    while (loop) {
+        Square from = popLsb(loop);
+        Bitboard attacks = rookAttacks(from, occupied) & destinations & pinMask(kSq, pinned, from);
+        while (attacks) moves.add(makeMove(from, popLsb(attacks)));
+    }
+
+    buildKingMoves(board, moves, kSq, them, themBB);
 }
 
 void genLegalMoves(const Board& board, MoveList& moves, bool quiet, bool noisy) {
-    MoveList pseudoLegals;
-
-    if (quiet) genQuietMoves(board, pseudoLegals);
-    if (noisy) genNoisyMoves(board, pseudoLegals);
-
-    Board tmpBoard;
-    memcpy(&tmpBoard, &board, sizeof(Board));
-
-    for (int i = 0; i < pseudoLegals.size(); ++i) {
-        Move m = pseudoLegals[i];
-        StateInfo tempSi;
-        tmpBoard.doMove(m, tempSi);
-        if (!tmpBoard.checkers(~tmpBoard.turn())) moves.add(m);
-        tmpBoard.undoMove(m);
-    }
+    if (quiet) genQuietMoves(board, moves);
+    if (noisy) genNoisyMoves(board, moves);
 }

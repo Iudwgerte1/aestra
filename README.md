@@ -29,7 +29,7 @@
 - **Late Move Reductions (LMR)**, with re‑search on fail‑high
 - **Check extensions** (+1 ply for moves giving check)
 - **Move ordering**: TT move → promotions → MVV‑LVA captures → killer moves → history heuristic
-- **Lazy SMP** multithreading (up to 256 threads) with root move rotation
+- **Lazy SMP** multithreading (up to 16 threads) with root move rotation
 - Time management
 
 ### Evaluation
@@ -48,7 +48,7 @@
 #### Options
 
 - `Hash` (1 MB–1 TB)
-- `Threads` (1–256)
+- `Threads` (1–16)
 
 #### Additional Commands
 
@@ -112,7 +112,7 @@ Additional thanks to:
 
 - [The Chess Programming Wiki](https://www.chessprogramming.org/)
 
-AI tools (especially [Claude Code](https://anthropic.com/claude-code) and [DeepSeek](https://deepseek.com/)) have also been used throughout the development process, thanks to modern technological advancements.
+AI tools have also been used throughout the development process, thanks to modern technological advancements.
 
 ## License
 
@@ -120,13 +120,16 @@ Aestra is free software distributed under the terms of the [GNU General Public L
 
 ## AI Generations
 
-The following parts of Aestra have been AI‑generated:
+Throughout development, we made regular use of AI tools to assist with debugging and improve code readability. The primary tools we leveraged include:
 
-- `search.hpp/cpp` - Most of the search code is AI-generated.
-- `thread.hpp/cpp` - All thread-related code is AI-generated.
-- `uci.hpp/cpp` - Most of the UCI-related code is AI-generated.
+- [Claude Code](https://anthropic.com/claude-code) from Anthropic
+- [Codex](https://openai.com/codex/) from OpenAI
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) from DeepSeek
 
-AI tools have also been used continuously for debugging and improving code readability.
+We also worked with the following models during development:
+
+- [DeepSeek](https://deepseek.com/)
+- [GPT 5.6](https://openai.com/index/gpt-5-6/)
 
 ## Borrowed Data Sources
 
