@@ -20,6 +20,9 @@
 
 #include "attacks.hpp"
 #include "masks.hpp"
+#include "nnue.hpp"
+
+bool UseNNUE = true;
 
 #define S(mg, eg) makeScore(Value(mg), Value(eg))
 
@@ -132,6 +135,8 @@ Score evalQueens(const Board& b, Color c) {
 }
 
 Value evaluate(const Board& b) {
+    if (UseNNUE) return nnueParams.evaluate(b.getAccumulators(b.turn()), b.getAccumulators(~b.turn()));
+
     Score score = b.psqtScore();
 
     score += evalPawns(b, WHITE) - evalPawns(b, BLACK);

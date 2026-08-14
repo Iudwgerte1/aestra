@@ -16,14 +16,19 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef EVALUATE_HPP
-#define EVALUATE_HPP
+#include "nnue.hpp"
 
-#include "board.hpp"
-#include "types.hpp"
+#include <fstream>
 
-extern bool UseNNUE;
+Network nnueParams;
 
-Value evaluate(const Board& b);
+void initNNUE() {
+    std::ifstream file(NETWORK_PATH, std::ios::binary);
 
-#endif  // EVALUATE_HPP
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open network file " + NETWORK_PATH);
+    }
+
+    file.read(reinterpret_cast<char*>(&nnueParams), sizeof(Network));
+    file.close();
+}

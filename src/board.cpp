@@ -129,6 +129,14 @@ void Board::setState() {
     st->pinned[BLACK] = pinnedOf(BLACK);
 
     st->kingAttackers = checkers(stm);
+
+    accumulators[WHITE].init();
+    accumulators[BLACK].init();
+
+    for (Square sq = SQ_A1; sq <= SQ_H8; ++sq) {
+        Piece p = pieceOn(sq);
+        if (p != NO_PIECE) addFeature(p, sq);
+    }
 }
 
 std::string Board::fen() const {
@@ -202,6 +210,11 @@ void Board::doMove(Move m, StateInfo& newSi) {
 
         k ^= ZobristKeys[r][rFrom] ^ ZobristKeys[r][rTo];
         k ^= ZobristKeys[p][from] ^ ZobristKeys[p][to];
+
+        removeFeature(r, rFrom);
+        removeFeature(p, from);
+        addFeature(r, rTo);
+        addFeature(p, to);
     } else if (moveType(m) == EN_PASSANT) {
         Square epPawnSquare = makeSquare(fileOf(to), rankOf(from));
         removePiece(epPawnSquare);
@@ -211,18 +224,33 @@ void Board::doMove(Move m, StateInfo& newSi) {
 
         k ^= ZobristKeys[p][from] ^ ZobristKeys[p][to] ^ ZobristKeys[captured][epPawnSquare];
         st->halfMoves = 0;
+
+        removeFeature(captured, epPawnSquare);
+        removeFeature(p, from);
+        addFeature(p, to);
     } else if (moveType(m) == PROMOTION) {
         removePiece(from);
-        if (captured != NO_PIECE) removePiece(to);
+        if (captured != NO_PIECE) {
+            removePiece(to);
+            removeFeature(captured, to);
+        }
         putPiece(makePiece(us, promoPiece(m)), to);
 
         k ^= ZobristKeys[p][from] ^ ZobristKeys[makePiece(us, promoPiece(m))][to];
+
+        removeFeature(p, from);
+        addFeature(makePiece(us, promoPiece(m)), to);
     } else {
         removePiece(from);
-        if (captured != NO_PIECE) removePiece(to);
+        if (captured != NO_PIECE) {
+            removePiece(to);
+            removeFeature(captured, to);
+        }
         putPiece(p, to);
 
         k ^= ZobristKeys[p][from] ^ ZobristKeys[p][to];
+        removeFeature(p, from);
+        addFeature(p, to);
     }
 
     if (st->epSquare != SQ_NONE) {
@@ -268,9 +296,16 @@ void Board::undoMove(Move m) {
 
     if (moveType(m) == PROMOTION) {
         p = makePiece(us, PAWN);
+        Piece promo = makePiece(us, promoPiece(m));
         removePiece(to);
-        if (st->capturedPiece != NO_PIECE) putPiece(st->capturedPiece, to);
+        if (st->capturedPiece != NO_PIECE) {
+            putPiece(st->capturedPiece, to);
+            addFeature(st->capturedPiece, to);
+        }
         putPiece(p, from);
+
+        removeFeature(promo, to);
+        addFeature(p, from);
     } else if (moveType(m) == CASTLING) {
         Square rFrom = makeSquare((to > from ? FILE_H : FILE_A), rankOf(from));
         Square rTo = makeSquare((to > from ? FILE_F : FILE_D), rankOf(from));
@@ -280,15 +315,29 @@ void Board::undoMove(Move m) {
         putPiece(r, rFrom);
         removePiece(to);
         putPiece(p, from);
+
+        removeFeature(r, rTo);
+        removeFeature(p, to);
+        addFeature(r, rFrom);
+        addFeature(p, from);
     } else if (moveType(m) == EN_PASSANT) {
         Square epPawnSquare = makeSquare(fileOf(to), rankOf(from));
         removePiece(to);
         putPiece(p, from);
         putPiece(st->capturedPiece, epPawnSquare);
+
+        removeFeature(p, to);
+        addFeature(p, from);
+        addFeature(st->capturedPiece, epPawnSquare);
     } else {
         removePiece(to);
         putPiece(p, from);
-        if (st->capturedPiece != NO_PIECE) putPiece(st->capturedPiece, to);
+        if (st->capturedPiece != NO_PIECE) {
+            putPiece(st->capturedPiece, to);
+            addFeature(st->capturedPiece, to);
+        }
+        removeFeature(p, to);
+        addFeature(p, from);
     }
 
     st = st->prev;

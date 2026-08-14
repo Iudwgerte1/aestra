@@ -73,7 +73,6 @@ static Value qsearch(Stack* stack, Board& board, Value alpha, Value beta) {
 
     if (stack->ply >= MAX_PLY) return evaluate(board);
 
-    // the frame owns the "deepest ply reached" invariant
     if (stack->ply > stack->ss->seldepth) stack->ss->seldepth = stack->ply;
 
     stack->pvLen = stack->ply;
@@ -123,7 +122,6 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
 
     if (stack->ply >= MAX_PLY) return evaluate(board);
 
-    // the frame owns the "deepest ply reached" invariant
     if (stack->ply > stack->ss->seldepth) stack->ss->seldepth = stack->ply;
 
     stack->pvLen = stack->ply;

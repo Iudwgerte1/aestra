@@ -58,17 +58,3 @@ pext:
 	$(CC) $(RFLAGS) $(SRC) $(LIBS) $(PEXTFLAGS) -o $(EXE)-pext$(EXT)
 
 release: none popcnt pext
-
-# Datagen test tools: engine objects without the two entry points, and
-# flags without -DNDEBUG so asserts in tests actually run.
-TESTSRC = $(filter-out src/main.cpp src/datagen.cpp,$(wildcard src/*.cpp))
-TFLAGS = $(filter-out -DNDEBUG,$(CFLAGS))
-
-check-fens:
-	$(CC) $(TFLAGS) $(TESTSRC) tests/check_fens.cpp -o check-fens$(EXT)
-
-adjudicator-test:
-	$(CC) $(TFLAGS) $(TESTSRC) tests/adjudicator_test.cpp -o adjudicator-test$(EXT)
-
-filter-test:
-	$(CC) $(TFLAGS) $(TESTSRC) tests/filter_test.cpp -o filter-test$(EXT)

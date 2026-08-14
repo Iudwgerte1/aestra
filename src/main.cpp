@@ -29,6 +29,7 @@
 #include "evaluate.hpp"
 #include "masks.hpp"
 #include "movegen.hpp"
+#include "nnue.hpp"
 #include "psqt.hpp"
 #include "search.hpp"
 #include "thread.hpp"
@@ -40,6 +41,7 @@
 int main(int argc, char* argv[]) {
     initAttacks();
     initMasks();
+    initNNUE();
     initPSQT();
     initZobrist();
 

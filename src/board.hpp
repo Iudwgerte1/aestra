@@ -27,8 +27,9 @@
 
 #include "attacks.hpp"
 #include "bitboards.hpp"
-#include "types.hpp"
+#include "nnue.hpp"
 #include "psqt.hpp"
+#include "types.hpp"
 
 struct StateInfo {
     int castlingRights;
@@ -99,6 +100,11 @@ public:
     void putPiece(Piece p, Square s);
     void removePiece(Square s);
 
+    const Accumulator& getAccumulators(Color c) const;
+
+    void addFeature(Piece p, Square s);
+    void removeFeature(Piece p, Square s);
+
 private:
     void setState();
     Bitboard pinnedOf(Color c) const;
@@ -112,6 +118,8 @@ private:
     int gamePly;
     Color stm;
     Score psqt;
+
+    Accumulator accumulators[COLOR_NB];
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& b);
@@ -191,5 +199,29 @@ inline StateInfo* Board::state() const { return st; }
 inline Bitboard Board::kingAttackers() const { return st->kingAttackers; }
 
 inline Bitboard Board::pinned(Color c) const { return st->pinned[c]; }
+
+inline const Accumulator& Board::getAccumulators(Color c) const { return accumulators[c]; }
+
+inline void Board::addFeature(Piece p, Square s) {
+    Color pc = colorOf(p);
+    PieceType pt = typeOf(p);
+
+    const size_t whiteIdx = int(pc) * 64 * 6 + int(pt - 1) * 64 + s;
+    const size_t blackIdx = int(~pc) * 64 * 6 + int(pt - 1) * 64 + int(s) ^ 56;
+    
+    accumulators[WHITE].addFeature(whiteIdx);
+    accumulators[BLACK].addFeature(blackIdx);
+}
+
+inline void Board::removeFeature(Piece p, Square s) {
+    Color pc = colorOf(p);
+    PieceType pt = typeOf(p);
+
+    const size_t whiteIdx = int(pc) * 64 * 6 + int(pt - 1) * 64 + s;
+    const size_t blackIdx = int(~pc) * 64 * 6 + int(pt - 1) * 64 + int(s) ^ 56;
+    
+    accumulators[WHITE].removeFeature(whiteIdx);
+    accumulators[BLACK].removeFeature(blackIdx);
+}
 
 #endif  // BOARD_HPP

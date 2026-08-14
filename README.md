@@ -34,14 +34,18 @@
 
 ### Evaluation
 
-- Material values and piece‑square tables in middlegame/endgame pairs
-- Bishop pair bonus
-- Mobility for bishops, rooks, and queens
-- Passed pawns, connected pawns, doubled pawns, isolated pawns
-- Rook on open files or semi-open files
-- Rook on the seventh rank bonus
-- Tapered evaluation based on game phase
-- Small tempo bonus for the side to move
+- NNUE (default)
+  - `(768->128)x2->1` structure
+  - trained on self-play games
+- HCE
+  - Material values and piece‑square tables in middlegame/endgame pairs
+  - Bishop pair bonus
+  - Mobility for bishops, rooks, and queens
+  - Passed pawns, connected pawns, doubled pawns, isolated pawns
+  - Rook on open files or semi-open files
+  - Rook on the seventh rank bonus
+  - Tapered evaluation based on game phase
+  - Small tempo bonus for the side to move
 
 ### UCI Support
 
@@ -49,12 +53,14 @@
 
 - `Hash` (1 MB–1 TB)
 - `Threads` (1–16)
+- `UseNNUE` (true/false)
 
 #### Additional Commands
 
 - `board` - print the current board state
 - `eval` - print the current evaluation score
 - `bench` - run the benchmarking suite
+- `datagen` - generate training data
 
 ## Building
 
@@ -82,7 +88,7 @@ Additional target: `make basic` (native, fastest on the build machine).
 
 ## Usage
 
-Run the engine directly for an interactive UCI session:
+Run the engine directly for an interactive UCI session (You need to have `chocolate.bin` in the same directory as the executable):
 
 ```sh
 ./Aestra.exe
@@ -107,6 +113,7 @@ The following tools were used for development:
 - [Cute Chess](https://cutechess.com/)
 - [Fastchess](https://github.com/Disservin/fastchess)
 - [Texel Tuner](https://github.com/GediminasMasaitis/texel-tuner)
+- [Bullet](https://github.com/jw1912/bullet)
 
 Additional thanks to:
 

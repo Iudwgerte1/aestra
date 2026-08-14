@@ -17,6 +17,7 @@
 */
 
 #include "engine.hpp"
+#include "evaluate.hpp"
 
 #include "tt.hpp"
 
@@ -57,5 +58,7 @@ void Engine::setOption(const std::string& name, const std::string& value) {
         TT.setSize((size_t)std::stoi(value));
     } else if (name == "Threads") {
         mainThread.setThreads(std::stoi(value));
+    } else if (name == "UseNNUE") {
+        UseNNUE = value == "true";
     }
 }
