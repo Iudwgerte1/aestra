@@ -4,6 +4,7 @@
 .codex/
 .claude/
 .agents/
+docs/superpowers
 
 AGENTS.md
 CLAUDE.md
@@ -14,3 +15,6 @@ CONTEXT.md
 
 *.epd
 *.pgn
+config.json
+
+*.txt

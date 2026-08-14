@@ -1,0 +1,243 @@
+/*
+    Aestra is a UCI-compliant chess engine written in C++.
+    Copyright (C) 2026  Iudwgerte1 <a09701070@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+#include "datagen.hpp"
+
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <fstream>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "board.hpp"
+#include "evaluate.hpp"
+#include "movegen.hpp"
+#include "search.hpp"
+#include "tt.hpp"
+#include "types.hpp"
+
+namespace {
+
+constexpr int MAX_GAME_PLY = 400;
+
+struct Adjudicator {
+    int winStreak = 0;
+    int drawStreak = 0;
+    int outcome = 0;
+
+    void update(Value whiteScore) {
+        int s = std::abs(int(whiteScore));
+        winStreak = s >= 600 ? winStreak + 1 : 0;
+        drawStreak = s <= 50 ? drawStreak + 1 : 0;
+        if (winStreak >= 8)
+            outcome = whiteScore > 0 ? 1 : -1;
+        else if (drawStreak >= 8)
+            outcome = 0;
+    }
+
+    bool done() const { return winStreak >= 8 || drawStreak >= 8; }
+};
+
+struct RecordedPosition {
+    std::string fen;
+    Value whiteScore;
+    Move bestMove;
+};
+
+struct GameData {
+    std::vector<RecordedPosition> records;
+    int outcome = 0;
+};
+
+bool playGame(GameData& gd, Board& board, SearchState& ss, std::deque<StateInfo>& states, PRNG& rng, int nodes) {
+    int si = 0;
+    board.setPos(STARTPOS, &states[0]);
+
+    for (int i = 0; i < 12; ++i) {
+        MoveList moves;
+        genLegalMoves(board, moves);
+        if (moves.empty() || board.isDraw(0)) return false;
+        board.doMove(moves[rng.rand64() % moves.size()], states[++si]);
+    }
+
+    Value we = board.turn() == WHITE ? evaluate(board) : -evaluate(board);
+    if (std::abs(int(we)) > 100) return false;
+
+    Limits limits;
+    limits.nodes = nodes;
+
+    Adjudicator adj;
+
+    while (true) {
+        MoveList moves;
+        genLegalMoves(board, moves);
+
+        if (moves.empty()) {
+            gd.outcome = board.checkers(board.turn()) ? (board.turn() == WHITE ? -1 : 1) : 0;
+            break;
+        }
+        if (board.isDraw(0) || board.Ply() >= MAX_GAME_PLY) {
+            gd.outcome = 0;
+            break;
+        }
+
+        ss.stop = false;
+        SearchResult result = search(ss, board, limits, [](int, Value) {});
+
+        Value whiteScore = board.turn() == WHITE ? result.score : -result.score;
+        Move bestMove = result.bestMove != MOVE_NONE ? result.bestMove : moves[0];
+
+        gd.records.push_back({board.fen(), whiteScore, bestMove});
+
+        if (board.Ply() >= 40) {
+            adj.update(whiteScore);
+            if (adj.done()) {
+                gd.outcome = adj.outcome;
+                break;
+            }
+        }
+
+        board.doMove(bestMove, states[++si]);
+    }
+
+    return true;
+}
+
+std::vector<RecordedPosition> filterRecords(const std::vector<RecordedPosition>& records, Board& scratch, StateInfo& s0,
+                                            StateInfo& s1) {
+    std::vector<RecordedPosition> kept;
+    kept.reserve(records.size());
+
+    for (const RecordedPosition& r : records) {
+        scratch.setPos(r.fen, &s0);
+
+        if (scratch.checkers(scratch.turn())) continue;
+        if (std::abs(int(r.whiteScore)) >= VALUE_MATE - MAX_PLY) continue;
+
+        Move m = r.bestMove;
+        if (scratch.pieceOn(toSq(m)) != NO_PIECE || moveType(m) == EN_PASSANT) continue;
+
+        scratch.doMove(m, s1);
+        if (scratch.checkers(scratch.turn())) continue;
+
+        kept.push_back(r);
+    }
+
+    return kept;
+}
+
+std::string formatLine(const RecordedPosition& r, int outcome, bool bullet) {
+    if (bullet)
+        return r.fen + " | " + std::to_string(int(r.whiteScore)) + " | " +
+               (outcome > 0   ? "1.0"
+                : outcome < 0 ? "0.0"
+                              : "0.5");
+    return r.fen + "; [" + (outcome > 0 ? "1-0" : outcome < 0 ? "0-1" : "1/2-1/2") + "]";
+}
+
+void worker(int idx, int nodes, int target, bool bullet, std::atomic<uint64_t>& total, std::atomic<uint64_t>& games,
+            std::atomic<int>& active, std::ofstream& out) {
+    PRNG rng(0x9E3779B97F4A7C15ull ^ (uint64_t(idx) * 0xD1B54A32D192ED03ull) ^
+             uint64_t(std::chrono::steady_clock::now().time_since_epoch().count()));
+
+    SearchState ss;
+    Board board;
+    std::deque<StateInfo> states(512);
+    Board scratch;
+    StateInfo s0, s1;
+
+    while (total.load(std::memory_order_relaxed) < (uint64_t)target) {
+        GameData gd;
+        if (!playGame(gd, board, ss, states, rng, nodes)) continue;
+
+        std::vector<RecordedPosition> kept = filterRecords(gd.records, scratch, s0, s1);
+
+        std::vector<std::string> lines;
+        lines.reserve(kept.size());
+        for (const RecordedPosition& r : kept) lines.push_back(formatLine(r, gd.outcome, bullet));
+
+        {
+            std::lock_guard<std::mutex> lock(ioMutex);
+            uint64_t remaining = (uint64_t)target - total.load(std::memory_order_relaxed);
+            size_t n = lines.size() < remaining ? lines.size() : (size_t)remaining;
+            for (size_t i = 0; i < n; ++i) out << lines[i] << "\n";
+            total.fetch_add(n, std::memory_order_relaxed);
+        }
+        games.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    active.fetch_sub(1, std::memory_order_relaxed);
+}
+
+}  // namespace
+
+void datagen(int threads, int nodes, int target, bool bullet_format) {
+    threads = std::max(1, threads);
+
+    TT.clear();
+
+    std::ofstream out("output.txt", std::ios::binary);
+    if (!out.is_open()) {
+        fprintf(stderr, "datagen: cannot open output.txt for writing\n");
+        exit(1);
+    }
+
+    std::atomic<uint64_t> total{0};
+    std::atomic<uint64_t> games{0};
+    std::atomic<int> active{threads};
+
+    std::vector<std::thread> workers;
+    workers.reserve(threads);
+    for (int i = 0; i < threads; ++i)
+        workers.emplace_back(worker, i, nodes, target, bullet_format, std::ref(total), std::ref(games),
+                             std::ref(active), std::ref(out));
+
+    auto start = std::chrono::steady_clock::now();
+    double nextReport = 10.0;
+
+    while (active.load(std::memory_order_relaxed) > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        if (secs >= nextReport) {
+            nextReport += 10.0;
+            uint64_t t = total.load(std::memory_order_relaxed);
+            uint64_t g = games.load(std::memory_order_relaxed);
+            printf("%llu/%d positions (%.1f%%), %llu games, %.0f pos/s\n", (unsigned long long)t, target,
+                   100.0 * t / target, (unsigned long long)g, secs ? t / secs : 0.0);
+        }
+    }
+
+    for (std::thread& th : workers) th.join();
+
+    double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    int elapsed = int(secs);
+    printf("datagen complete\n");
+    printf("positions written: %llu / %d\n", (unsigned long long)total.load(), target);
+    printf("games played:      %llu\n", (unsigned long long)games.load());
+    printf("elapsed:           %02d:%02d:%02d\n", elapsed / 3600, elapsed % 3600 / 60, elapsed % 60);
+    printf("throughput:        %.0f pos/s\n", secs ? total.load() / secs : 0.0);
+    printf("threads: %d  nodes/move: %d  format: %s\n", threads, nodes, bullet_format ? "bullet" : "plain");
+    out.flush();
+}
