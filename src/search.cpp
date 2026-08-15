@@ -31,6 +31,8 @@ std::mutex ioMutex;
 
 static constexpr int pieceValues[PIECE_TYPE_NB] = {0, 100, 300, 320, 500, 1000, 20000, 0};
 
+static constexpr int MAX_HISTORY = 100000;
+
 static Value futilityMargin(Depth d) { return Value(150 * d); }
 
 static void checkLimit(SearchState& ss) {
@@ -43,6 +45,7 @@ static void checkLimit(SearchState& ss) {
 static int scoreMove(Stack* stack, Board& board, Move m, Move ttMove) {
     if (m == ttMove) return 5000000;
 
+    Square from = fromSq(m);
     Square to = toSq(m);
     MoveType mt = moveType(m);
 
@@ -53,7 +56,7 @@ static int scoreMove(Stack* stack, Board& board, Move m, Move ttMove) {
 
     if (m == stack->killers[0]) return 900000;
     if (m == stack->killers[1]) return 800000;
-    return stack->ss->history[board.turn()][fromSq(m)][to];
+    return stack->ss->butterflyHistory[board.turn()][from][to];
 }
 
 static Move pickNext(Stack* stack, MoveList& moves, int idx) {
@@ -243,8 +246,9 @@ moves_loop:
                         stack->killers[1] = stack->killers[0];
                         stack->killers[0] = m;
                     }
-                    int& h = stack->ss->history[board.turn()][fromSq(m)][toSq(m)];
-                    h = std::clamp(h + depth * depth, int(-VALUE_MATE), int(VALUE_MATE));
+                    int bonus = std::clamp(depth * depth, -MAX_HISTORY, MAX_HISTORY);
+                    int& h = stack->ss->butterflyHistory[board.turn()][fromSq(m)][toSq(m)];
+                    h += bonus - h * abs(bonus) / MAX_HISTORY;
                 }
                 break;
             }
@@ -269,7 +273,7 @@ SearchResult search(SearchState& ss, Board& board, const Limits& limits,
     ss.nodes = 0;
     ss.seldepth = 0;
     ss.tm.init(limits, board.turn());
-    std::memset(ss.history, 0, sizeof(ss.history));
+    std::memset(ss.butterflyHistory, 0, sizeof(ss.butterflyHistory));
     std::memset(ss.stack, 0, sizeof(ss.stack));
     for (auto& frame : ss.stack) frame.ss = &ss;
     ss.stack[0].ply = 0;

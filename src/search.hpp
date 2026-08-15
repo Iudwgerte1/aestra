@@ -47,8 +47,6 @@ struct SearchResult {
 
 struct SearchState;
 
-// One frame per ply: owns the per-ply search state and reaches the shared
-// per-thread state through its back pointer.
 struct Stack {
     Move pv[MAX_PLY];
     int pvLen;
@@ -64,7 +62,7 @@ struct SearchState {
     std::atomic<bool> stop{false};
     uint64_t nodes = 0;
     int seldepth = 0;
-    int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
+    int butterflyHistory[COLOR_NB][SQUARE_NB][SQUARE_NB];
     Stack stack[MAX_PLY + 2];
     TimeManager tm;
     int threadIdx = 0;
