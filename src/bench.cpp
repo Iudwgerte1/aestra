@@ -35,12 +35,12 @@ void runBench(int argc, char* argv[]) {
     Engine engine;
 
     Value scores[256];
-    double times[256];
+    uint64_t times[256];
     uint64_t nodes[256];
     Move bestMoves[256];
 
     uint64_t totalNodes = 0;
-    double totalTime = 0;
+    uint64_t totalTime = 0;
 
     int depth = argc > 2 ? atoi(argv[2]) : 13;
     int nthreads = argc > 3 ? atoi(argv[3]) : 1;
@@ -61,8 +61,8 @@ void runBench(int argc, char* argv[]) {
         engine.go(limits, {}, [&](const SearchResult& r) { lastResult = r; });
         engine.waitForSearchFinished();
 
-        times[i] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime)
-                       .count();
+        times[i] =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime).count();
         nodes[i] = lastResult.nodes;
         bestMoves[i] = lastResult.bestMove;
         scores[i] = lastResult.score;
@@ -73,5 +73,5 @@ void runBench(int argc, char* argv[]) {
         TT.clear();
     }
 
-    std::cout << "Bench: " << totalNodes << " nodes " << int(1000.0f * totalNodes / totalTime) << " nps" << std::endl;
+    std::cout << "Bench: " << totalNodes << " nodes " << 1000 * totalNodes / totalTime << " nps" << std::endl;
 }

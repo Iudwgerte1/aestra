@@ -130,6 +130,7 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
     stack->pvLen = stack->ply;
 
     Value eval = VALUE_NONE;
+    Value staticEval = evaluate(board);
 
     bool inCheck = board.kingAttackers();
     bool isPV = int(beta) - int(alpha) > 1;
@@ -188,6 +189,15 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
         if (score >= beta) return beta;
     }
 
+    if (depth >= 6 && !ttHit && (isPV || staticEval + 250 >= beta)) {
+        Depth d = 3 * depth / 4 - 2;
+        stack->skipEarlyPruning = true;
+        negamax(stack, board, alpha, beta, d);
+        stack->skipEarlyPruning = false;
+
+        tte = TT.probe(board.key(), ttEntry, ttHit);
+        ttMove = ttHit ? entryMove(ttEntry) : MOVE_NONE;
+    }
 moves_loop:
     MoveList moves;
     genLegalMoves(board, moves);
