@@ -161,25 +161,33 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
         goto moves_loop;
     } else if (ttHit) {
         if (ttValue != VALUE_NONE)
-            if (entryBound(ttEntry) & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER))
-                eval = ttValue;
+            if (entryBound(ttEntry) & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)) eval = ttValue;
     }
 
-    if (!isRoot && depth < 7 && eval - futilityMargin(depth) >= beta && eval < VALUE_MATE && popcount(board.pieces()) > 6)
+    if (stack->skipEarlyPruning) goto moves_loop;
+
+    if (!isPV && depth < 4 && ttMove == MOVE_NONE && eval + 500 <= alpha) {
+        if (depth <= 1) return qsearch(stack, board, alpha, beta);
+        Value ralpha = alpha - 500;
+        Value v = qsearch(stack, board, ralpha, ralpha + 1);
+        if (v <= ralpha) return v;
+    }
+
+    if (!isRoot && depth < 7 && eval - futilityMargin(depth) >= beta && eval < VALUE_MATE &&
+        popcount(board.pieces()) > 6)
         return eval;
 
-    if (!stack->skipEarlyPruning && !isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
-
+    if (!isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
         StateInfo newSi;
         board.doNullMove(newSi);
-        (stack + 1)->ply = stack->ply + 1;
-        (stack + 1)->skipEarlyPruning = true;
-        Value score = -negamax(stack + 1, board, -beta, -beta + 1, depth - 4);
+        stack->skipEarlyPruning = true;
+        Value score = -negamax(stack, board, -beta, -beta + 1, depth - 4);
+        stack->skipEarlyPruning = false;
         board.undoNullMove();
 
         if (score >= beta) return beta;
     }
-    
+
 moves_loop:
     MoveList moves;
     genLegalMoves(board, moves);
