@@ -24,11 +24,13 @@
 - **PVS** — principal variation search with zero‑window searches on the remaining moves
 - **Quiescence search** with stand‑pat, extended to all legal moves when in check
 - **Transposition table**: 4 entries per bucket, mate‑distance pruning.
+- **Razoring**: 500 cp threshold
 - **Futility pruning**: 150 cp threshold
 - **Null‑move pruning** (reduction R = 4)
+- **Internal Iterative Deepening**
 - **Late Move Reductions (LMR)**, with re‑search on fail‑high
 - **Check extensions** (+1 ply for moves giving check)
-- **Move ordering**: TT move → promotions → MVV‑LVA captures → killer moves → history heuristic
+- **Move ordering**: TT move → promotions → MVV‑LVA captures → killer moves → butterfly history heuristic
 - **Lazy SMP** multithreading (up to 16 threads) with root move rotation
 - Time management
 
@@ -36,7 +38,8 @@
 
 - NNUE (default)
   - `(768->128)x2->1` structure
-  - trained on self-play games
+  - Trained on self-play games
+  - Current network: `mulberry.bin`
 - HCE
   - Material values and piece‑square tables in middlegame/endgame pairs
   - Bishop pair bonus
