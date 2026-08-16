@@ -64,6 +64,7 @@
 - `eval` - print the current evaluation score
 - `bench` - run the benchmarking suite
 - `datagen` - generate training data
+- `genfens` - generate random openings
 
 ## Building
 

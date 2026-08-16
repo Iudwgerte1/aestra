@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 #include "attacks.hpp"
@@ -27,6 +28,7 @@
 #include "board.hpp"
 #include "datagen.hpp"
 #include "evaluate.hpp"
+#include "genfens.hpp"
 #include "masks.hpp"
 #include "movegen.hpp"
 #include "nnue.hpp"
@@ -78,6 +80,8 @@ int main(int argc, char* argv[]) {
         datagen(threads, nodes, target, bullet_format);
 
         return 0;
+    } else if (argc > 1 && strncmp(argv[1], "genfens", 7) == 0 && (argv[1][7] == ' ' || argv[1][7] == '\0')) {
+        return runGenfens(argv[1]);
     }
 
     uciLoop();
