@@ -27,6 +27,7 @@
 #include <deque>
 #include <fstream>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -62,12 +63,15 @@ struct Adjudicator {
 
 struct RecordedPosition {
     std::string fen;
+    Key key;
     Value whiteScore;
     Move bestMove;
+
+    bool operator<(const RecordedPosition& other) const { return key < other.key; }
 };
 
 struct GameData {
-    std::vector<RecordedPosition> records;
+    std::set<RecordedPosition> records;
     int outcome = 0;
 };
 
@@ -109,7 +113,7 @@ bool playGame(GameData& gd, Board& board, SearchState& ss, std::deque<StateInfo>
         Value whiteScore = board.turn() == WHITE ? result.score : -result.score;
         Move bestMove = result.bestMove != MOVE_NONE ? result.bestMove : moves[0];
 
-        gd.records.push_back({board.fen(), whiteScore, bestMove});
+        gd.records.insert({board.fen(), board.key(), whiteScore, bestMove});
 
         if (board.Ply() >= 40) {
             adj.update(whiteScore);
@@ -125,7 +129,7 @@ bool playGame(GameData& gd, Board& board, SearchState& ss, std::deque<StateInfo>
     return true;
 }
 
-std::vector<RecordedPosition> filterRecords(const std::vector<RecordedPosition>& records, Board& scratch, StateInfo& s0,
+std::vector<RecordedPosition> filterRecords(const std::set<RecordedPosition>& records, Board& scratch, StateInfo& s0,
                                             StateInfo& s1) {
     std::vector<RecordedPosition> kept;
     kept.reserve(records.size());
