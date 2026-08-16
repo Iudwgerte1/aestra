@@ -8,7 +8,6 @@
 docs/adr/
 docs/agents/
 docs/superpowers/
-
 AGENTS.md
 CLAUDE.md
 CONTEXT.md
@@ -21,3 +20,4 @@ CONTEXT.md
 config.json
 
 *.txt
+*.bin
