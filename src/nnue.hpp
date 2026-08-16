@@ -36,7 +36,7 @@ inline constexpr int16_t QAB = QA * QB;
 
 inline constexpr Value SCALE = Value(400);
 
-inline const std::string NETWORK_PATH = "chocolate.bin";
+inline const std::string NETWORK_PATH = "mulberry.bin";
 
 constexpr int32_t screlu(int16_t x) {
     const int32_t y = std::clamp<int32_t>(x, 0, QA);
