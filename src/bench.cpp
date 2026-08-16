@@ -73,5 +73,5 @@ void runBench(int argc, char* argv[]) {
         TT.clear();
     }
 
-    std::cout << "Bench: " << totalNodes << " nodes " << 1000 * totalNodes / totalTime << " nps" << std::endl;
+    std::cout << totalNodes << " nodes " << 1000 * totalNodes / totalTime << " nps" << std::endl;
 }
