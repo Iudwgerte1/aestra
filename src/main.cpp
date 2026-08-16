@@ -41,7 +41,6 @@
 int main(int argc, char* argv[]) {
     initAttacks();
     initMasks();
-    initNNUE();
     initPSQT();
     initZobrist();
 

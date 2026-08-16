@@ -18,17 +18,8 @@
 
 #include "nnue.hpp"
 
-#include <fstream>
+#include "incbin.h"
 
-Network nnueParams;
+INCBIN(nnue, EVALFILE);
 
-void initNNUE() {
-    std::ifstream file(NETWORK_PATH, std::ios::binary);
-
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open network file " + NETWORK_PATH);
-    }
-
-    file.read(reinterpret_cast<char*>(&nnueParams), sizeof(Network));
-    file.close();
-}
+const Network& nnueParams = *reinterpret_cast<const Network*>(gnnueData);

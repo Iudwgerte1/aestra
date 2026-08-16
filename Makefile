@@ -22,8 +22,9 @@ SRC = src/*.cpp
 LIBS = 
 EXE = Aestra
 EXT = .exe
+EVALFILE = mulberry.bin
 
-WFLAGS = -std=c++17 -Wall -Wextra -Wshadow
+WFLAGS = -std=c++17 -Wall -Wextra -Wshadow -DEVALFILE=\"$(EVALFILE)\"
 RFLAGS = -O3 $(WFLAGS) -DNDEBUG -static
 CFLAGS = -O3 $(WFLAGS) -DNDEBUG -march=native
 

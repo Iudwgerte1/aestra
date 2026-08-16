@@ -36,8 +36,6 @@ inline constexpr int16_t QAB = QA * QB;
 
 inline constexpr Value SCALE = Value(400);
 
-inline const std::string NETWORK_PATH = "mulberry.bin";
-
 constexpr int32_t screlu(int16_t x) {
     const int32_t y = std::clamp<int32_t>(x, 0, QA);
     return y * y;
@@ -72,7 +70,7 @@ struct Network {
     }
 };
 
-extern Network nnueParams;
+extern const Network& nnueParams;
 
 inline void Accumulator::init() { vals = nnueParams.featureBias; }
 
@@ -83,7 +81,5 @@ inline void Accumulator::addFeature(size_t idx) {
 inline void Accumulator::removeFeature(size_t idx) {
     for (size_t i = 0; i < HIDDEN_SIZE; ++i) vals[i] -= nnueParams.featureWeights[idx * HIDDEN_SIZE + i];
 }
-
-void initNNUE();
 
 #endif  // NNUE_HPP
