@@ -4,7 +4,10 @@
 .codex/
 .claude/
 .agents/
-docs/superpowers
+.superpowers/
+docs/adr/
+docs/agents/
+docs/superpowers/
 
 AGENTS.md
 CLAUDE.md
