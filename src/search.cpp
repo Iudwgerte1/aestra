@@ -231,8 +231,10 @@ moves_loop:
         bool doFullSearch = moveCount == 1;
         if (!doFullSearch) {
             int reduction = 0;
-            if (depth >= 3 && moveCount >= 4 && !inCheck && !givesCheck && moveType(m) == NORMAL)
-                reduction = 1 + moveCount / 8;
+            if (depth >= 3 && moveCount >= 4 && !inCheck && !givesCheck && moveType(m) == NORMAL) {
+                reduction = std::clamp<int>(0.75 + std::log(depth) * std::log(moveCount) / 2.25, 1, depth - 1);
+                if (m == stack->killers[0] || m == stack->killers[1]) reduction = 0;
+            }
 
             score = -negamax(stack + 1, board, -alpha - 1, -alpha, newDepth - reduction);
             if (stack->ss->stop) {
