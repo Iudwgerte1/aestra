@@ -227,6 +227,11 @@ moves_loop:
         bool givesCheck = board.kingAttackers();
         int newDepth = depth - 1 + (givesCheck ? 1 : 0);
 
+        if (!isPV && !inCheck && !givesCheck && moveType(m) == NORMAL && moveCount > 3 + depth * depth) {
+            board.undoMove(m);
+            continue;
+        }
+
         Value score;
         bool doFullSearch = moveCount == 1;
         if (!doFullSearch) {
