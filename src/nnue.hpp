@@ -29,6 +29,8 @@ class Board;
 
 inline constexpr size_t INPUT_SIZE = 768;
 inline constexpr size_t HIDDEN_SIZE = 128;
+inline constexpr size_t OUTPUT_BUCKETS = 8;
+inline constexpr int BUCKET_DIVISOR = 32 / OUTPUT_BUCKETS;
 
 inline constexpr int16_t QA = 255;
 inline constexpr int16_t QB = 64;
@@ -54,16 +56,18 @@ struct alignas(64) Accumulator {
 struct Network {
     std::array<int16_t, INPUT_SIZE * HIDDEN_SIZE> featureWeights;
     std::array<int16_t, HIDDEN_SIZE> featureBias;
-    std::array<int16_t, 2 * HIDDEN_SIZE> outputWeights;
-    int16_t outputBias;
+    std::array<int16_t, OUTPUT_BUCKETS * 2 * HIDDEN_SIZE> outputWeights;
+    std::array<int16_t, OUTPUT_BUCKETS> outputBias;
 
-    Value evaluate(const Accumulator& us, const Accumulator& them) const {
+    Value evaluate(const Accumulator& us, const Accumulator& them, int bucket) const {
         int32_t output = 0;
-        for (size_t i = 0; i < HIDDEN_SIZE; ++i) output += screlu(us.vals[i]) * static_cast<int32_t>(outputWeights[i]);
         for (size_t i = 0; i < HIDDEN_SIZE; ++i)
-            output += screlu(them.vals[i]) * static_cast<int32_t>(outputWeights[HIDDEN_SIZE + i]);
+            output += screlu(us.vals[i]) * static_cast<int32_t>(outputWeights[bucket * 2 * HIDDEN_SIZE + i]);
+        for (size_t i = 0; i < HIDDEN_SIZE; ++i)
+            output +=
+                screlu(them.vals[i]) * static_cast<int32_t>(outputWeights[bucket * 2 * HIDDEN_SIZE + HIDDEN_SIZE + i]);
         output /= QA;
-        output += outputBias;
+        output += outputBias[bucket];
         output *= SCALE;
         output /= QAB;
         return Value(output);

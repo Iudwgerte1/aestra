@@ -135,7 +135,11 @@ Score evalQueens(const Board& b, Color c) {
 }
 
 Value evaluate(const Board& b) {
-    if (UseNNUE) return nnueParams.evaluate(b.getAccumulators(b.turn()), b.getAccumulators(~b.turn()));
+    if (UseNNUE) {
+        int numPieces = popcount(b.pieces());
+        int bucket = (numPieces - 2) / BUCKET_DIVISOR;
+        return nnueParams.evaluate(b.getAccumulators(b.turn()), b.getAccumulators(~b.turn()), bucket);
+    }
 
     Score score = b.psqtScore();
 
