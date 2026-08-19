@@ -200,7 +200,7 @@ void uciLoop() {
             std::cout << engine.position() << std::endl;
         } else if (token == "eval") {
             std::cout << "Evaluation: " << std::endl;
-            for (int i = 0; i < 8; ++i) {
+            for (int i = 0; i < int(OUTPUT_BUCKETS); ++i) {
                 int bucket = (popcount(engine.position().pieces()) - 2) / BUCKET_DIVISOR;
                 std::cout << "Bucket " << i << ": " << evaluateNNUE(engine.position(), i);
                 std::cout << ((i == bucket) ? " (current)" : "") << std::endl;
