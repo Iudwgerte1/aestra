@@ -22,7 +22,7 @@ SRC = src/*.cpp
 LIBS = 
 EXE = Aestra
 EXT = .exe
-EVALFILE = tsunami.bin
+EVALFILE = bouquet640.bin
 
 WFLAGS = -std=c++17 -Wall -Wextra -Wshadow -DEVALFILE=\"$(EVALFILE)\"
 RFLAGS = -O3 $(WFLAGS) -DNDEBUG -static
