@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <set>
@@ -74,6 +75,65 @@ struct GameData {
     std::set<RecordedPosition> records;
     int outcome = 0;
 };
+
+struct ResumeInfo {
+    uint64_t lines = 0;
+    uint64_t truncateSize = 0;
+    bool hasTail = false;
+    bool hasFormat = false;
+    bool isBullet = false;
+};
+
+ResumeInfo inspectOutput(const char* path) {
+    ResumeInfo info;
+    std::ifstream in(path, std::ios::binary);
+    if (!in.is_open()) return info;
+
+    in.seekg(0, std::ios::end);
+    std::streamoff fileSize = in.tellg();
+    in.seekg(0, std::ios::beg);
+
+    std::vector<char> buf(1 << 20);
+    uint64_t bytes = 0;
+    uint64_t lastNewline = 0;
+    bool haveLast = false;
+    std::string firstLine;
+    bool collectFirstLine = true;
+
+    while (in.read(buf.data(), buf.size()) || in.gcount() > 0) {
+        std::streamsize got = in.gcount();
+        for (std::streamsize i = 0; i < got; ++i) {
+            char c = buf[i];
+            if (collectFirstLine) {
+                if (c == '\n') {
+                    if (!firstLine.empty()) collectFirstLine = false;
+                } else if (firstLine.size() < 256) {
+                    firstLine += c;
+                }
+            }
+            if (c == '\n') {
+                lastNewline = bytes + (uint64_t)i;
+                haveLast = true;
+                ++info.lines;
+            }
+        }
+        bytes += (uint64_t)got;
+    }
+
+    if (haveLast && (uint64_t)fileSize > lastNewline + 1) {
+        info.hasTail = true;
+        info.truncateSize = lastNewline + 1;
+    }
+    if (!firstLine.empty()) {
+        if (firstLine.find('|') != std::string::npos) {
+            info.hasFormat = true;
+            info.isBullet = true;
+        } else if (firstLine.find(';') != std::string::npos) {
+            info.hasFormat = true;
+        }
+    }
+    return info;
+}
 
 bool playGame(GameData& gd, Board& board, SearchState& ss, std::deque<StateInfo>& states, PRNG& rng, int nodes) {
     int si = 0;
@@ -197,18 +257,42 @@ void worker(int idx, int nodes, int target, bool bullet, std::atomic<uint64_t>& 
 
 }  // namespace
 
-void datagen(int threads, int nodes, int target, bool bullet_format) {
+void datagen(int threads, int nodes, int target, bool bullet_format, bool resume) {
     threads = std::max(1, threads);
 
     TT.clear();
 
-    std::ofstream out("output.txt", std::ios::binary);
+    uint64_t existing = 0;
+    if (resume) {
+        ResumeInfo info = inspectOutput("output.txt");
+        if (info.lines >= (uint64_t)target) {
+            fprintf(stderr, "datagen: output.txt already has %llu lines >= target %d; nothing to do\n",
+                    (unsigned long long)info.lines, target);
+            return;
+        }
+        if (info.hasFormat && info.isBullet != bullet_format) {
+            fprintf(stderr, "datagen: --resume: output.txt format (%s) does not match requested format (%s)\n",
+                    info.isBullet ? "bullet" : "plain", bullet_format ? "bullet" : "plain");
+            exit(1);
+        }
+        if (info.hasTail) {
+            try {
+                std::filesystem::resize_file("output.txt", info.truncateSize);
+            } catch (const std::filesystem::filesystem_error& e) {
+                fprintf(stderr, "datagen: --resume: cannot truncate partial line in output.txt: %s\n", e.what());
+                exit(1);
+            }
+        }
+        existing = info.lines;
+    }
+
+    std::ofstream out("output.txt", std::ios::binary | (resume ? std::ios::app : std::ios::out));
     if (!out.is_open()) {
         fprintf(stderr, "datagen: cannot open output.txt for writing\n");
         exit(1);
     }
 
-    std::atomic<uint64_t> total{0};
+    std::atomic<uint64_t> total{existing};
     std::atomic<uint64_t> games{0};
     std::atomic<int> active{threads};
 
@@ -219,29 +303,38 @@ void datagen(int threads, int nodes, int target, bool bullet_format) {
                              std::ref(active), std::ref(out));
 
     auto start = std::chrono::steady_clock::now();
-    double nextReport = 10.0;
+
+    const uint64_t REPORT_INTERVAL = 100000;
+    uint64_t nextMilestone = (existing / REPORT_INTERVAL + 1) * REPORT_INTERVAL;
 
     while (active.load(std::memory_order_relaxed) > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        if (secs >= nextReport) {
-            nextReport += 10.0;
-            uint64_t t = total.load(std::memory_order_relaxed);
+
+        uint64_t t = total.load(std::memory_order_relaxed);
+        if (t >= nextMilestone) {
+            uint64_t secs =
+                std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count();
             uint64_t g = games.load(std::memory_order_relaxed);
-            printf("%llu/%d positions (%.1f%%), %llu games, %.0f pos/s\n", (unsigned long long)t, target,
-                   100.0 * t / target, (unsigned long long)g, secs ? t / secs : 0.0);
+            int left = target - t;
+            int left_time = left * secs / (t - existing);
+            printf("%llu/%d positions (%.1f%%) | %llu games | %.0f pos/s\n", nextMilestone, target, 100.0 * t / target,
+                   (unsigned long long)g, secs && t > existing ? 1.0 * (t - existing) / secs : 0.0);
+            printf("Estimated remaining time: %d h %d m %d s\n", left_time / 3600, left_time % 3600 / 60,
+                   left_time % 60);
+            nextMilestone += REPORT_INTERVAL;
         }
     }
 
     for (std::thread& th : workers) th.join();
 
-    double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    uint64_t secs = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count();
     int elapsed = int(secs);
     printf("datagen complete\n");
     printf("positions written: %llu / %d\n", (unsigned long long)total.load(), target);
     printf("games played:      %llu\n", (unsigned long long)games.load());
     printf("elapsed:           %02d:%02d:%02d\n", elapsed / 3600, elapsed % 3600 / 60, elapsed % 60);
-    printf("throughput:        %.0f pos/s\n", secs ? total.load() / secs : 0.0);
+    printf("throughput:        %.0f pos/s\n",
+           secs && total.load() > existing ? 1.0 * (total.load() - existing) / secs : 0.0);
     printf("threads: %d  nodes/move: %d  format: %s\n", threads, nodes, bullet_format ? "bullet" : "plain");
     out.flush();
 }

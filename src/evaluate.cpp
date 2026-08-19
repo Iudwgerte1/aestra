@@ -134,13 +134,7 @@ Score evalQueens(const Board& b, Color c) {
     return queenScore;
 }
 
-Value evaluate(const Board& b) {
-    if (UseNNUE) {
-        int numPieces = popcount(b.pieces());
-        int bucket = (numPieces - 2) / BUCKET_DIVISOR;
-        return nnueParams.evaluate(b.getAccumulators(b.turn()), b.getAccumulators(~b.turn()), bucket);
-    }
-
+Value evaluateClassic(const Board& b) {
     Score score = b.psqtScore();
 
     score += evalPawns(b, WHITE) - evalPawns(b, BLACK);
@@ -159,4 +153,17 @@ Value evaluate(const Board& b) {
     eval = b.turn() == WHITE ? eval : -eval;
 
     return Value(eval);
+}
+
+Value evaluateNNUE(const Board& b, int bucket) {
+    return nnueParams.evaluate(b.getAccumulators(b.turn()), b.getAccumulators(~b.turn()), bucket);
+}
+
+Value evaluate(const Board& b) {
+    if (UseNNUE) {
+        int numPieces = popcount(b.pieces());
+        int bucket = (numPieces - 2) / BUCKET_DIVISOR;
+        return evaluateNNUE(b, bucket);
+    }
+    return evaluateClassic(b);
 }

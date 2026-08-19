@@ -199,7 +199,13 @@ void uciLoop() {
         } else if (token == "board") {
             std::cout << engine.position() << std::endl;
         } else if (token == "eval") {
-            std::cout << evaluate(engine.position()) << std::endl;
+            std::cout << "Evaluation: " << std::endl;
+            for (int i = 0; i < 8; ++i) {
+                int bucket = (popcount(engine.position().pieces()) - 2) / BUCKET_DIVISOR;
+                std::cout << "Bucket " << i << ": " << evaluateNNUE(engine.position(), i);
+                std::cout << ((i == bucket) ? " (current)" : "") << std::endl;
+            }
+            std::cout << "Classic Evaluation: " << evaluateClassic(engine.position()) << std::endl;
         }
     }
 }

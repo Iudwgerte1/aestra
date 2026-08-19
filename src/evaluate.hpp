@@ -24,6 +24,8 @@
 
 extern bool UseNNUE;
 
+Value evaluateClassic(const Board& b);
+Value evaluateNNUE(const Board& b, int bucket);
 Value evaluate(const Board& b);
 
 #endif  // EVALUATE_HPP

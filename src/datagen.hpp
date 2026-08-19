@@ -19,6 +19,6 @@
 #ifndef DATAGEN_HPP
 #define DATAGEN_HPP
 
-void datagen(int threads, int nodes, int target, bool bullet_format);
+void datagen(int threads, int nodes, int target, bool bullet_format, bool resume);
 
 #endif  // DATAGEN_HPP

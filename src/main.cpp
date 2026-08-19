@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "datagen") == 0) {
         int threads = 1, nodes = 5000, target = 1000000000;
-        bool bullet_format = false;
+        bool bullet_format = false, resume = false;
 
         for (int i = 2; i < argc; ++i) {
             if (strcmp(argv[i], "--threads") == 0)
@@ -62,6 +62,8 @@ int main(int argc, char* argv[]) {
                 target = i + 1 < argc ? atoi(argv[++i]) : 0;
             else if (strcmp(argv[i], "--bullet") == 0)
                 bullet_format = true;
+            else if (strcmp(argv[i], "--resume") == 0)
+                resume = true;
         }
 
         if (nodes < 1) {
@@ -77,7 +79,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        datagen(threads, nodes, target, bullet_format);
+        datagen(threads, nodes, target, bullet_format, resume);
 
         return 0;
     } else if (argc > 1 && strncmp(argv[1], "genfens", 7) == 0 && (argv[1][7] == ' ' || argv[1][7] == '\0')) {
