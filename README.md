@@ -37,9 +37,9 @@
 ### Evaluation
 
 - NNUE (default)
-  - `(768->128)x2->8` structure
+  - `(768->512)x2->8` structure
   - Trained on self-play games
-  - Current network: `bouquet640.bin`
+  - Current network: `epicfury.bin`
 - HCE
   - Material values and piece‑square tables in middlegame/endgame pairs
   - Bishop pair bonus

@@ -28,7 +28,7 @@
 class Board;
 
 inline constexpr size_t INPUT_SIZE = 768;
-inline constexpr size_t HIDDEN_SIZE = 128;
+inline constexpr size_t HIDDEN_SIZE = 512;
 inline constexpr size_t OUTPUT_BUCKETS = 8;
 inline constexpr int BUCKET_DIVISOR = 32 / OUTPUT_BUCKETS;
 
