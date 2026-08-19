@@ -37,7 +37,7 @@ namespace {
 Engine engine;
 
 void printUci() {
-    std::cout << "id name Aestra 2.0.0" << std::endl;
+    std::cout << "id name Aestra 2.1.0" << std::endl;
     std::cout << "id author Iudwgerte1" << std::endl;
     std::cout << "option name Threads type spin default 1 min 1 max 16" << std::endl;
     std::cout << "option name Hash type spin default 16 min 1 max 1048576" << std::endl;
