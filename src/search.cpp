@@ -33,7 +33,17 @@ static constexpr int pieceValues[PIECE_TYPE_NB] = {0, 100, 300, 320, 500, 1000, 
 
 static constexpr int MAX_HISTORY = 100000;
 
-static Value futilityMargin(Depth d) { return Value(150 * d); }
+static int LMR_REDUCTIONS[MAX_PLY][MAX_MOVES];
+
+void initSearch() {
+    memset(LMR_REDUCTIONS, 0, sizeof(LMR_REDUCTIONS));
+
+    for (int i = 1; i < MAX_PLY; ++i)
+        for (int j = 1; j < MAX_MOVES; ++j)
+            LMR_REDUCTIONS[i][j] = std::clamp<int>(0.92 + std::log(1.0 * i) * std::log(1.0 * j) / 1.48, 1, i - 1);
+}
+
+static Value futilityMargin(Depth d) { return Value(148 * d); }
 
 static void checkLimit(SearchState& ss) {
     if (ss.limits.nodes && ss.nodes >= (uint64_t)ss.limits.nodes)
@@ -167,9 +177,9 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
 
     if (stack->skipEarlyPruning) goto moves_loop;
 
-    if (!isPV && depth < 4 && ttMove == MOVE_NONE && eval + 500 <= alpha) {
+    if (!isPV && depth < 4 && ttMove == MOVE_NONE && eval + 502 <= alpha) {
         if (depth <= 1) return qsearch(stack, board, alpha, beta);
-        Value ralpha = alpha - 500;
+        Value ralpha = alpha - 502;
         Value v = qsearch(stack, board, ralpha, ralpha + 1);
         if (v <= ralpha) return v;
     }
@@ -180,17 +190,18 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
 
     if (!isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
         StateInfo newSi;
+        Depth R = 6.97 + 0.03 * depth;
         board.doNullMove(newSi);
         stack->skipEarlyPruning = true;
-        Value score = -negamax(stack, board, -beta, -beta + 1, depth - 4);
+        Value score = -negamax(stack, board, -beta, -beta + 1, depth - R);
         stack->skipEarlyPruning = false;
         board.undoNullMove();
 
         if (score >= beta) return beta;
     }
 
-    if (depth >= 6 && !ttHit && (isPV || staticEval + 250 >= beta)) {
-        Depth d = 3 * depth / 4 - 2;
+    if (depth >= 6 && !ttHit && (isPV || staticEval + 248 >= beta)) {
+        Depth d = 0.75 * depth - 2.02;
         stack->skipEarlyPruning = true;
         negamax(stack, board, alpha, beta, d);
         stack->skipEarlyPruning = false;
@@ -232,7 +243,7 @@ moves_loop:
         if (!doFullSearch) {
             int reduction = 0;
             if (depth >= 3 && moveCount >= 4 && !inCheck && !givesCheck && moveType(m) == NORMAL)
-                reduction = 1 + moveCount / 8;
+                reduction = LMR_REDUCTIONS[depth][moveCount];
 
             score = -negamax(stack + 1, board, -alpha - 1, -alpha, newDepth - reduction);
             if (stack->ss->stop) {

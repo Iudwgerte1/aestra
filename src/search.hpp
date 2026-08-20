@@ -68,6 +68,8 @@ struct SearchState {
     int threadIdx = 0;
 };
 
+void initSearch();
+
 SearchResult search(SearchState& ss, Board& board, const Limits& limits, const std::function<void(int, Value)>& report);
 
 uint64_t perft(Board& board, int depth, bool isRoot = true);
