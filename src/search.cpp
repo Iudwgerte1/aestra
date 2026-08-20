@@ -198,8 +198,8 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
 
     if (!isPV && eval >= beta && depth >= 3 && !inCheck && popcount(board.pieces()) > 6) {
         StateInfo newSi;
-        Depth R = std::get<SPSAParam<int>>(spsaParams["nmpBias"]).currValue +
-                  (depth / std::get<SPSAParam<int>>(spsaParams["nmpDivisor"]).currValue);
+        Depth R = std::get<SPSAParam<float>>(spsaParams["nmpBias"]).currValue +
+                  std::get<SPSAParam<float>>(spsaParams["nmpCoeff"]).currValue * depth;
         board.doNullMove(newSi);
         stack->skipEarlyPruning = true;
         Value score = -negamax(stack, board, -beta, -beta + 1, depth - R);
@@ -211,9 +211,8 @@ static Value negamax(Stack* stack, Board& board, Value alpha, Value beta, int de
 
     if (depth >= 6 && !ttHit &&
         (isPV || staticEval + std::get<SPSAParam<int>>(spsaParams["iidMargin"]).currValue >= beta)) {
-        Depth d = std::get<SPSAParam<int>>(spsaParams["iidCoeff"]).currValue * depth /
-                      std::get<SPSAParam<int>>(spsaParams["iidDivisor"]).currValue -
-                  std::get<SPSAParam<int>>(spsaParams["iidBias"]).currValue;
+        Depth d = std::get<SPSAParam<float>>(spsaParams["iidCoeff"]).currValue * depth -
+                  std::get<SPSAParam<float>>(spsaParams["iidBias"]).currValue;
         stack->skipEarlyPruning = true;
         negamax(stack, board, alpha, beta, d);
         stack->skipEarlyPruning = false;

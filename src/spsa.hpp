@@ -35,16 +35,15 @@ struct SPSAParam {
 typedef std::variant<SPSAParam<int>, SPSAParam<float>> SPSAParamVar;
 
 inline std::map<std::string, SPSAParamVar> spsaParams = {
-    {"lmrBias", SPSAParam<float>{0.75f, 0.0f, 1.0f, 2.25f, 0.002f}},
+    {"lmrBias", SPSAParam<float>{0.75f, 0.0f, 1.0f, 1.0f, 0.002f}},
     {"lmrDivisor", SPSAParam<float>{2.25f, 1.0f, 5.0f, 1.0f, 0.002f}},
     {"futilityCoeff", SPSAParam<int>{150, 50, 500, 5.0f, 0.002f}},
     {"iidMargin", SPSAParam<int>{250, 100, 500, 5.0f, 0.002f}},
     {"razoringMargin", SPSAParam<int>{500, 100, 2000, 5.0f, 0.002f}},
-    {"iidBias", SPSAParam<int>{2, 0, 10, 1.0f, 0.002f}},
-    {"iidCoeff", SPSAParam<int>{3, 1, 10, 1.0f, 0.002f}},
-    {"iidDivisor", SPSAParam<int>{4, 1, 10, 1.0f, 0.002f}},
-    {"nmpBias", SPSAParam<int>{7, 0, 10, 1.0f, 0.002f}},
-    {"nmpDivisor", SPSAParam<int>{3, 1, 10, 1.0f, 0.002f}}};
+    {"iidBias", SPSAParam<float>{2.0f, 0.0f, 10, 1.0f, 0.002f}},
+    {"iidCoeff", SPSAParam<float>{0.75, 0.3f, 1.0f, 1.0f, 0.002f}},
+    {"nmpBias", SPSAParam<float>{7.0f, 0, 10, 1.0f, 0.002f}},
+    {"nmpCoeff", SPSAParam<float>{3.0f, 0.0f, 0.75f, 1.0f, 0.002f}}};
 
 void printSPSAInfo();
 void printSPSAUCI();
