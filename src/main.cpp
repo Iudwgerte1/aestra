@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
     initMasks();
     initPSQT();
     initZobrist();
+    initSearch();
 
     if (argc > 1 && strcmp(argv[1], "bench") == 0) {
         runBench(argc, argv);

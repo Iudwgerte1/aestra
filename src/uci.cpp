@@ -30,6 +30,7 @@
 #include "evaluate.hpp"
 #include "movegen.hpp"
 #include "search.hpp"
+#include "spsa.hpp"
 #include "tt.hpp"
 
 namespace {
@@ -42,6 +43,7 @@ void printUci() {
     std::cout << "option name Threads type spin default 1 min 1 max 16" << std::endl;
     std::cout << "option name Hash type spin default 16 min 1 max 1048576" << std::endl;
     std::cout << "option name UseNNUE type check default true" << std::endl;
+    printSPSAUCI();
     std::cout << "uciok" << std::endl;
 }
 
@@ -183,7 +185,8 @@ void uciLoop() {
             iss >> name;
             iss >> value;
             iss >> value;
-            engine.setOption(name, value);
+            if (!setSPSAParam(name, value))
+                engine.setOption(name, value);
         } else if (token == "ucinewgame") {
             TT.clear();
         } else if (token == "position") {
@@ -198,6 +201,8 @@ void uciLoop() {
             break;
         } else if (token == "board") {
             std::cout << engine.position() << std::endl;
+        } else if (token == "spsa") {
+            printSPSAInfo();
         } else if (token == "eval") {
             std::cout << "Evaluation: " << std::endl;
             for (int i = 0; i < int(OUTPUT_BUCKETS); ++i) {
