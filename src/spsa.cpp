@@ -58,8 +58,7 @@ void printSPSAUCI() {
 
 bool setSPSAParam(const std::string& name, const std::string& value) {
     auto it = spsaParams.find(name);
-    if (it == spsaParams.end())
-        return false;
+    if (it == spsaParams.end()) return false;
 
     try {
         if (std::holds_alternative<SPSAParam<int>>(it->second)) {

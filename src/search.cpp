@@ -41,10 +41,11 @@ void initSearch() {
 
     for (int i = 1; i < MAX_PLY; ++i)
         for (int j = 1; j < MAX_MOVES; ++j)
-            LMR_REDUCTIONS[i][j] = std::clamp<int>(
-                std::get<SPSAParam<float>>(spsaParams["lmrBias"]).currValue +
-                    std::log(i) * std::log(j) / std::get<SPSAParam<float>>(spsaParams["lmrDivisor"]).currValue,
-                1, i - 1);
+            LMR_REDUCTIONS[i][j] =
+                std::clamp<int>(std::get<SPSAParam<float>>(spsaParams["lmrBias"]).currValue +
+                                    std::log(1.0 * i) * std::log(1.0 * j) /
+                                        std::get<SPSAParam<float>>(spsaParams["lmrDivisor"]).currValue,
+                                1, i - 1);
 }
 
 static Value futilityMargin(Depth d) {
