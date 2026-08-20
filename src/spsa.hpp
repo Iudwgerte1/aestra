@@ -43,7 +43,7 @@ inline std::map<std::string, SPSAParamVar> spsaParams = {
     {"iidBias", SPSAParam<float>{2.0f, 0.0f, 10, 1.0f, 0.002f}},
     {"iidCoeff", SPSAParam<float>{0.75, 0.3f, 1.0f, 1.0f, 0.002f}},
     {"nmpBias", SPSAParam<float>{7.0f, 0, 10, 1.0f, 0.002f}},
-    {"nmpCoeff", SPSAParam<float>{3.0f, 0.0f, 0.75f, 1.0f, 0.002f}}};
+    {"nmpCoeff", SPSAParam<float>{0.33f, 0.0f, 0.75f, 1.0f, 0.002f}}};
 
 void printSPSAInfo();
 void printSPSAUCI();
